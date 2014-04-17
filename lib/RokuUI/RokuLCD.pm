@@ -1,17 +1,14 @@
-# RokuLCD.pm version 0.2
-#
-# sub-version of RokuUI Copyright Michael Polymenakos 2007 mpoly@panix.com
-#
-# Released under the GPL. http://www.gnu.org/licenses/gpl.txt
-#
-# Created by Ed Outhwaite to make the M400's 16x2 display easier to write to.
-#
-
 package RokuUI::RokuLCD;
+
+use 5.006;
+use strict;
+use warnings;
 
 require RokuUI;
 
-@ISA = qw(RokuUI);
+our @ISA = qw(RokuUI);
+
+our $VERSION = '0.03';
 
 
 sub new {
@@ -19,16 +16,17 @@ sub new {
   my $self = {@_};
   bless ($self, $class);
   $self->{display_length} = 16;   # Assumed 400
-  $self->{display_length} = 40 if ($self{model} == 500);
+  if ($self->{model} == 500) { $self->{display_length} = 40; }
   return $self;
 }
 
 
-sub marquee() {
-  my $self  = shift;
+sub marquee {
+#  my $self  = shift;
+  my ($self, %args)  = @_;
   return 0 if !($self->{connection});
 
-  my %args = @_;
+#  my %args = @_;
   my $text = $args{'text'} || "";
   my $clear    =  $args{'clear'}    || 0;
   my $keygrab  =  $args{'keygrab'};
@@ -51,7 +49,7 @@ sub marquee() {
 } # end marquee
 
 
-sub teletype() { # print a large block of text
+sub teletype { # print a large block of text
   my $self = shift;
   return 0 if !($self->{connection});
   my %args = @_;
@@ -68,6 +66,7 @@ sub teletype() { # print a large block of text
   $self->msg(clear=> 1, duration => 0, keygrab => $keygrab, y => 1, text => ' ');
 
   my (@string);
+  my $rc;
   my ($line_length,$length, $y) = 0;
   my ($y0_string, $y1_string) = undef;
 
@@ -75,7 +74,7 @@ sub teletype() { # print a large block of text
   foreach (@paras) {
     @string = split(/ /);
 
-    for ($ary_inx=0;$ary_inx<=$#string;$ary_inx++) {
+    for (my $ary_inx=0;$ary_inx<=$#string;$ary_inx++) {
       # This bit doesn't work... yet:
       # if (length($string[$ary_inx]) > $self->{display_length}) { # hyphenate it
       #   if (($line_length) && (($line_length + length($string[$ary_inx]) - 2) < ($self->{display_length} * 2))) {
@@ -149,7 +148,7 @@ sub teletype() { # print a large block of text
         $rc = $self->ticker(text => $y1_string, duration => $linepause, keygrab => $keygrab, y => 1);
       }
       else {
-        for ($i=length($y0_string);$i<=16;$i++) { $y0_string .= ' '; }
+        for (my $i=length($y0_string);$i<=16;$i++) { $y0_string .= ' '; }
         $rc = $self->msg(text => $y0_string, duration => 0, keygrab => $keygrab, y => 0);
         $rc = $self->msg(text => $self->_spacefill(text => ' '), duration => $linepause, keygrab => $keygrab, y => 1);
       }
@@ -169,21 +168,22 @@ sub teletype() { # print a large block of text
       $rc = $self->msg(clear => 1, text => $y0_string, duration => $linepause, keygrab => $keygrab, y => 0);
     }
   }
+  return($rc);
 } # end teletype
 
 
-sub _spacefill() { # pad line with spaces - this is an internal function, and likely to change
+sub _spacefill { # pad line with spaces - this is an internal function, and likely to change
   my $self = shift;
   return 0 if !($self->{connection});
   my %args    = @_;
   my $text    = $args{'text'}  || "";
-  for ($i=length($text);$i<=$self->{display_length};$i++) {
+  for (my $i=length($text);$i<=$self->{display_length};$i++) {
     $text .= ' '; }
   return $text;
 } # end _spacefill
 
 
-sub ticker() { # an alternative to marquee
+sub ticker { # an alternative to marquee
   my $self = shift;
   return 0 if !($self->{connection});
   my %args    = @_;
@@ -195,9 +195,10 @@ sub ticker() { # an alternative to marquee
     $keygrab = 1;
   }
 
+  my $rc;
   my ($dtext,$dur,$offset,$spc,$tlength) = 0;
 #  $self->msg(clear=>1, y=>$y, text => "                ", pause => 0);
-  for ($length=1;$length<(length($text));$length++) {
+  for (my $length=1;$length<(length($text));$length++) {
     $spc++;
     $tlength++ unless ($tlength == $self->{display_length});
     $offset++ if (length($dtext) == $self->{display_length});
@@ -217,6 +218,7 @@ sub ticker() { # an alternative to marquee
   }
   $dtext = substr($text,- $self->{display_length},$self->{display_length});
   $self->msg(text => $dtext, duration => $pause, keygrab => $keygrab, y => $y) unless (($rc =~ /^CK/) &&  ($keygrab < 2));
+  return($rc);
 } # end ticker
 
 ;1;
@@ -314,24 +316,9 @@ determines what happens when a message is received from the remote control:
 
 =back
 
-
-=head1 THANKS
-
-Both ticker and teletype were inspired by Rod Lord's work on the Hitch-Hiker's Guide to the Galaxy TV program.
-http://www.rodlord.com/pages/hhgg.htm
-
-
-=head1 TERMS AND CONDITIONS
-
-Copyright (c) 2008 by Ed Outhwaite.  Released under the GPL. http://www.gnu.org/licenses/gpl.txt
-
-RokuUI is Copyright Michael Polymenakos 2007 mpoly@panix.com
-
-
 =head1 AUTHOR
 
-Ed Outhwaite
-F<edstertech@googlemail.com>
+Outhwaite, Ed, C<< <edstertech at googlemail.com> >>
 
 
 =head1 VERSION
@@ -344,7 +331,59 @@ F<edstertech@googlemail.com>
 
 =item Version 0.2  June 3, 2008 Ironed out some niggles with ticker, and finally have a script to release with the module
 
+=item Version 0.3  March 15, 2014 Finally got around to CPAN style packaging
+
 =back
+
+
+=head1 ACKNOWLEDGEMENTS
+
+Both ticker and teletype were inspired by Rod Lord's work on the Hitch-Hiker's Guide to the Galaxy TV program.
+http://www.rodlord.com/pages/hhgg.htm
+
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright 2014 Outhwaite, Ed.
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the the Artistic License (2.0). You may obtain a
+copy of the full license at:
+
+L<http://www.perlfoundation.org/artistic_license_2_0>
+
+Any use, modification, and distribution of the Standard or Modified
+Versions is governed by this Artistic License. By using, modifying or
+distributing the Package, you accept this license. Do not use, modify,
+or distribute the Package, if you do not accept this license.
+
+If your Modified Version has been derived from a Modified Version made
+by someone other than you, you are nevertheless required to ensure that
+your Modified Version complies with the requirements of this license.
+
+This license does not grant you the right to use any trademark, service
+mark, tradename, or logo of the Copyright Holder.
+
+This license includes the non-exclusive, worldwide, free-of-charge
+patent license to make, have made, use, offer to sell, sell, import and
+otherwise transfer the Package with respect to any patent claims
+licensable by the Copyright Holder that are necessarily infringed by the
+Package. If you institute patent litigation (including a cross-claim or
+counterclaim) against any party alleging that the Package constitutes
+direct or contributory patent infringement, then this Artistic License
+to you shall terminate on the date that such litigation is filed.
+
+Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
+AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
+THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
+YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR
+CONTRIBUTOR WILL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, OR
+CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THE PACKAGE,
+EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+RokuUI is Copyright Michael Polymenakos 2007 mpoly@panix.com
+
 
 =cut
 
