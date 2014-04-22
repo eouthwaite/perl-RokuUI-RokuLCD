@@ -15,33 +15,30 @@ sub new {
   my $class = shift;
   my $self = {@_};
   bless ($self, $class);
-  $self->{display_length} = 16;   # Assumed 400
-  if ($self->{model} == 500) { $self->{display_length} = 40; }
+  if ($self->{model} == 500) {
+  	$self->{display_length} = 40;
+  }
+  else {
+  	# Assume model == 400
+  	$self->{display_length} = 16;
+  }
   return $self;
 }
 
 
 sub marquee {
-#  my $self  = shift;
   my ($self, %args)  = @_;
-  return 0 if !($self->{connection});
+  if (! $self->{connection}) { return 0; };
 
-#  my %args = @_;
-  my $text = $args{'text'} || "";
-  my $clear    =  $args{'clear'}    || 0;
+  my $text     =  $args{'text'}  || "";
+  my $clear    =  $args{'clear'} || 0;
   my $keygrab  =  $args{'keygrab'};
   if ($keygrab !~ /[0..2]/) { # 0 is a valid value
     $keygrab = 1;
   }
-  my $duration;
-  # if ($self->{display_length} == 16) {  # bad form to directly reference an objects variable...
-    $duration = (int(((length($text))+24)/25))*5;
-  # }
-  # else {
-  #   $duration = (int(((length($text))+48)/49))*5;
-  # }
+  my $duration = (int(((length($text))+24)/25))*5;
 
-#  print length($text), " $duration\n"; # use for debugging
+  if ($self->{debug}) { print "DEBUG text length = ", length($text), " duration = $duration\n"; }
 
   my ($rc) = $self->msg(text => "$text",   keygrab  => $keygrab,
                         mode => 'marquee', duration => $duration);
@@ -51,12 +48,12 @@ sub marquee {
 
 sub teletype { # print a large block of text
   my $self = shift;
-  return 0 if !($self->{connection});
-  my %args = @_;
-  my $text = $args{'text'} || "";
-  my $pause = $args{'pause'} || 2;
-  my $linepause = $args{'linepause'} || 1;
-  my $keygrab  =  $args{'keygrab'};
+  if (! $self->{connection}) { return 0; };
+  my %args      = @_;
+  my $text      = $args{'text'}      || ""; # default text is blank
+  my $pause     = $args{'pause'}     || 2;  # length of time to wait in seconds before next line
+  my $linepause = $args{'linepause'} || 1;  # length of additional time to wait in seconds after message 
+  my $keygrab   = $args{'keygrab'};
   if ($keygrab !~ /[0..2]/) { # 0 is a valid value
     $keygrab = 1;
   }
@@ -75,20 +72,6 @@ sub teletype { # print a large block of text
     @string = split(/ /);
 
     for (my $ary_inx=0;$ary_inx<=$#string;$ary_inx++) {
-      # This bit doesn't work... yet:
-      # if (length($string[$ary_inx]) > $self->{display_length}) { # hyphenate it
-      #   if (($line_length) && (($line_length + length($string[$ary_inx]) - 2) < ($self->{display_length} * 2))) {
-      #     $strlen = $self->{display_length} - ($line_length+2);
-      #   }
-      #   else {
-      #     $strlen = $self->{display_length} - 1; # second half may be bigger than display, but...
-      #   }
-      #   $a = substr($string[$ary_inx],0,$strlen);
-      #   $b = substr($string[$ary_inx],$strlen,(length($string[$ary_inx])-$strlen));
-      #   $string[$ary_inx] = "$a-$b";
-      # }
-      # print "$string[$ary_inx]\n";
-      
       if ((length($string[$ary_inx]) + $line_length) < $self->{display_length}) {
         if ($y == 0) {
           $y0_string .= ' ' if ($y0_string);
@@ -197,7 +180,6 @@ sub ticker { # an alternative to marquee
 
   my $rc;
   my ($dtext,$dur,$offset,$spc,$tlength) = 0;
-#  $self->msg(clear=>1, y=>$y, text => "                ", pause => 0);
   for (my $length=1;$length<(length($text));$length++) {
     $spc++;
     $tlength++ unless ($tlength == $self->{display_length});
@@ -206,13 +188,13 @@ sub ticker { # an alternative to marquee
     $spc = 0 if (substr($dtext,-1,1) eq ' ');
     if ((length($text) > $self->{display_length}) && (++$dur == $self->{display_length})) {
       $rc = $self->msg(text => $dtext, duration => 1, keygrab => $keygrab, y => $y);
-      # print "$dtext $dur $spc\n";
+	  if ($self->{debug}) { print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n"; }
       $dur = $spc;
       $dur = 0 if ($dur > $self->{display_length});
     }
     else {
       $rc = $self->msg(text => $dtext, duration => 0, keygrab => $keygrab, y => $y);
-      # print "$dtext $dur $spc\n";
+	  if ($self->{debug}) { print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n"; }
     }
     return ($rc) if (($rc =~ /^CK/) &&  ($keygrab < 2));
   }

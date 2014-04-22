@@ -1,16 +1,19 @@
 RokuUI-RokuLCD
 
-The README is used to introduce the module and provide instructions on
-how to install the module, any machine dependencies it may have (for
-example C compilers and installed libraries) and any other information
-that should be provided before the module is installed.
+A note on Tools4Roku...
+Why isn't Tools4Roku good enough for you ?
+- well it is very good, and if you have a more advanced Soundbridge, I'd
+recommend heading over to http://billiatjapan.netfirms.com/Tools4Roku/
+and downloading Juergen's script.
 
-A README file is required for CPAN modules since CPAN extracts the README
-file from a module distribution so that people browsing the archive
-can use it to get an idea of the module's uses. It is usually a good idea
-to provide version information here so that people can decide whether
-fixes for the module are worth downloading.
+However, my M400 can't display pictures and has a very small screen.  I
+also found the RokuUI module a little clunky and wanted to create an
+easier interface to send display updates - hence the RokuLCD module.
 
+Note that the RokuLCD module requires the RokuUI module as it inherits
+and uses the RokuUI methods.  For more information on RokuLCD, the
+documentation is encapsulated within the module and can be accessed via
+a tool such as pod2html.
 
 INSTALLATION
 
