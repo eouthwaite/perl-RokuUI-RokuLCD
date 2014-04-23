@@ -10,6 +10,44 @@ our @ISA = qw(RokuUI);
 
 our $VERSION = '0.03';
 
+=head1 NAME
+
+RokuUI::RokuLCD - M400 & M500 Display Functions made more accessible than via the RokuUI module
+
+
+=head1 SYNOPSIS
+
+
+ use RokuUI::RokuLCD;
+ my $display = RokuUI::RokuLCD->new(host => $rokuIP, port => 4444, model => 400);
+ $display->open || die("Could not connect to Roku Soundbridge");
+
+ my($rv) = $display->marquee(text => "This allows easy access to the marquee function - timings for M400 only");
+
+ $display->ticker(text => "An alternative to the marquee function that can cope with large quantities of text", pause => 5);
+
+ open (INFILE, "a_text_file.txt");
+ @slurp_file = <INFILE>;
+ close(INFILE);
+
+ $display->teletype(text => "@slurp_file", pause => 2, linepause => 1);
+
+ $display->close;
+
+=head1 DESCRIPTION
+
+RokuUI::RokuLCD was written because the standard RokuUI module appeared a bit too high level,
+so I put together some simplified display routines into a single easy-to-use object.  It inherits
+all the methods from the standard RokuUI module.
+
+=head1 METHODS
+
+=head2 new(host => I<host_address> [, port => I<port>] [, model => I<400 or 500>])
+
+If not given, RokuLCD assumes that the port number is 4444, and that the model is an M400.
+Be warned this will mean less than half the display being used on an M500!
+
+=cut
 
 sub new {
   my $class = shift;
@@ -25,6 +63,14 @@ sub new {
   return $self;
 }
 
+=head2 marquee(text => I<text to display> [, clear => I<0/1>] [, keygrab => I<0/1/2>])
+
+This allows quick access to the standard sketch marquee function - timings are for text sized to
+the M400 display as I do not have access to an M500.
+
+If 1 is passed to clear, it forces the display to clear first (default 0)
+
+=cut
 
 sub marquee {
   my ($self, %args)  = @_;
@@ -46,7 +92,75 @@ sub marquee {
 } # end marquee
 
 
-sub teletype { # print a large block of text
+sub _spacefill {
+  # pad line with spaces - used to overwrite previous lines
+  # WARNING! This is an internal function, and likely to change
+  my $self = shift;
+  return 0 if !($self->{connection});
+  my %args    = @_;
+  my $text    = $args{'text'}  || "";
+  for (my $i=length($text);$i<=$self->{display_length};$i++) {
+    $text .= ' '; }
+  return $text;
+} # end _spacefill
+
+
+
+=head2 ticker(text => I<text to display> [, y => I<0/1>] [, pause => I<seconds>] [, keygrab => I<0/1/2>])
+
+An alternative to the marquee that can be displayed on either the top or bottom line.
+
+=cut
+
+sub ticker { # an alternative to marquee
+  my $self = shift;
+  return 0 if !($self->{connection});
+  my %args    = @_;
+  my $text    = $args{'text'}  || "";
+  my $pause   = $args{'pause'} || 1;
+  my $y       = $args{'y'}     || 0;
+  my $keygrab = $args{'keygrab'};
+  if ($keygrab !~ /[0..2]/) { # 0 is a valid value
+    $keygrab = 1;
+  }
+
+  my $rc;
+  my ($dtext,$dur,$offset,$spc,$tlength) = 0;
+  for (my $length=1;$length<(length($text));$length++) {
+    $spc++;
+    $tlength++ unless ($tlength == $self->{display_length});
+    $offset++ if (length($dtext) == $self->{display_length});
+    $dtext = substr($text,$offset,$tlength);
+    $spc = 0 if (substr($dtext,-1,1) eq ' ');
+    if ((length($text) > $self->{display_length}) && (++$dur == $self->{display_length})) {
+      $rc = $self->msg(text => $dtext, duration => 1, keygrab => $keygrab, y => $y);
+	  if ($self->{debug}) { print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n"; }
+      $dur = $spc;
+      $dur = 0 if ($dur > $self->{display_length});
+    }
+    else {
+      $rc = $self->msg(text => $dtext, duration => 0, keygrab => $keygrab, y => $y);
+	  if ($self->{debug}) { print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n"; }
+    }
+    return ($rc) if (($rc =~ /^CK/) &&  ($keygrab < 2));
+  }
+  $dtext = substr($text,- $self->{display_length},$self->{display_length});
+  $self->msg(text => $dtext, duration => $pause, keygrab => $keygrab, y => $y) unless (($rc =~ /^CK/) &&  ($keygrab < 2));
+  return($rc);
+} # end ticker
+
+
+=head2 teletype(text => I<text to display> [, pause => I<seconds>] [, [linepause =>  I<seconds>] [, keygrab => I<0/1/2>])
+
+An alternative to using marquee to display large quantities of text, scrolling the display upwards rather than from 
+the right.
+
+The length of time to pause after each line of text is given by I<linepause>, wheras I<pause> holds the
+length of time to pause at the end of the text.
+
+=cut
+
+sub teletype {
   my $self = shift;
   if (! $self->{connection}) { return 0; };
   my %args      = @_;
@@ -154,122 +268,11 @@ sub teletype { # print a large block of text
   return($rc);
 } # end teletype
 
-
-sub _spacefill { # pad line with spaces - this is an internal function, and likely to change
-  my $self = shift;
-  return 0 if !($self->{connection});
-  my %args    = @_;
-  my $text    = $args{'text'}  || "";
-  for (my $i=length($text);$i<=$self->{display_length};$i++) {
-    $text .= ' '; }
-  return $text;
-} # end _spacefill
-
-
-sub ticker { # an alternative to marquee
-  my $self = shift;
-  return 0 if !($self->{connection});
-  my %args    = @_;
-  my $text    = $args{'text'}  || "";
-  my $pause   = $args{'pause'} || 1;
-  my $y       = $args{'y'}     || 0;
-  my $keygrab = $args{'keygrab'};
-  if ($keygrab !~ /[0..2]/) { # 0 is a valid value
-    $keygrab = 1;
-  }
-
-  my $rc;
-  my ($dtext,$dur,$offset,$spc,$tlength) = 0;
-  for (my $length=1;$length<(length($text));$length++) {
-    $spc++;
-    $tlength++ unless ($tlength == $self->{display_length});
-    $offset++ if (length($dtext) == $self->{display_length});
-    $dtext = substr($text,$offset,$tlength);
-    $spc = 0 if (substr($dtext,-1,1) eq ' ');
-    if ((length($text) > $self->{display_length}) && (++$dur == $self->{display_length})) {
-      $rc = $self->msg(text => $dtext, duration => 1, keygrab => $keygrab, y => $y);
-	  if ($self->{debug}) { print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n"; }
-      $dur = $spc;
-      $dur = 0 if ($dur > $self->{display_length});
-    }
-    else {
-      $rc = $self->msg(text => $dtext, duration => 0, keygrab => $keygrab, y => $y);
-	  if ($self->{debug}) { print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n"; }
-    }
-    return ($rc) if (($rc =~ /^CK/) &&  ($keygrab < 2));
-  }
-  $dtext = substr($text,- $self->{display_length},$self->{display_length});
-  $self->msg(text => $dtext, duration => $pause, keygrab => $keygrab, y => $y) unless (($rc =~ /^CK/) &&  ($keygrab < 2));
-  return($rc);
-} # end ticker
-
 ;1;
 
-
-
-# end of module, documentation below
-
+# end of module, additional documentation below
 
 __END__
-
-=head1 NAME
-
-RokuUI::RokuLCD - M400 & M500 Display Functions made more accessible than via the RokuUI module
-
-
-=head1 SYNOPSIS
-
-
- use RokuUI::RokuLCD;
- my $display = RokuUI::RokuLCD->new(host => $rokuIP, port => 4444, model => 400);
- $display->open || die("Could not connect to Roku Soundbridge");
-
- my($rv) = $display->marquee(text => "This allows easy access to the marquee function - timings for M400 only");
-
- $display->ticker(text => "An alternative to the marquee function that can cope with large quantities of text", pause => 5);
-
- open (INFILE, "a_text_file.txt");
- @slurp_file = <INFILE>;
- close(INFILE);
-
- $display->teletype(text => "@slurp_file", pause => 2, linepause => 1);
-
- $display->close;
-
-=head1 DESCRIPTION
-
-RokuUI::RokuLCD was written because the standard RokuUI module appeared a bit too high level,
-so I put together some simplified display routines into a single easy-to-use object.  It inherits
-all the methods from the standard RokuUI module.
-
-=head1 METHODS
-
-=head2 new(host => I<host_address> [, port => I<port>] [, model => I<400 or 500>])
-
-If not given, RokuLCD assumes that the port number is 4444, and that the model is an M400.
-Be warned this will mean less than half the display being used on an M500!
-
-
-=head2 marquee(text => I<text to display> [, clear => I<0/1>] [, keygrab => I<0/1/2>])
-
-This allows quick access to the standard sketch marquee function - timings are for text sized to
-the M400 display as I do not have access to an M500.
-
-If 1 is passed to clear, it forces the display to clear first (default 0)
-
-=head2 ticker(text => I<text to display> [, y => I<0/1>] [, pause => I<seconds>] [, keygrab => I<0/1/2>])
-
-An alternative to the marquee that can be displayed on either the top or bottom line.
-
-
-=head2 teletype(text => I<text to display> [, pause => I<seconds>] [, [linepause =>  I<seconds>] [, keygrab => I<0/1/2>])
-
-An alternative to using marquee to display large quantities of text, scrolling the display upwards rather than from 
-the right.
-
-The length of time to pause after each line of text is given by I<linepause>, wheras I<pause> holds the
-length of time to pause at the end of the text.
-
 
 =head1 STANDARD VARIABLES
 
@@ -307,13 +310,11 @@ Outhwaite, Ed, C<< <edstertech at googlemail.com> >>
 
 =over
 
-=item Version 0.01 May 6, 2008 First attempt
+=item Version 0.01  May 12, 2008 Deemed acceptable for initial release
 
-=item Version 0.1  May 12, 2008 Deemed acceptable for initial release
+=item Version 0.02  June 3, 2008 Ironed out some niggles with ticker, and finally have a script to release with the module
 
-=item Version 0.2  June 3, 2008 Ironed out some niggles with ticker, and finally have a script to release with the module
-
-=item Version 0.3  March 15, 2014 Finally got around to CPAN style packaging
+=item Version 0.03  March 15, 2014 Finally got around to CPAN style packaging
 
 =back
 
