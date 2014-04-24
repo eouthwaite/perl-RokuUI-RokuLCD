@@ -1,10 +1,10 @@
-package RokuUI::RokuLCD;
+package Roku::RokuLCD;
 
 use 5.006;
 use strict;
 use warnings;
 
-require RokuUI;
+require Roku::RCP;
 
 our @ISA = qw(RokuUI);
 
@@ -12,13 +12,20 @@ our $VERSION = '0.03';
 
 =head1 NAME
 
-RokuUI::RokuLCD - M400 & M500 Display Functions made more accessible than via the RokuUI module
+Roku::RokuLCD - M400 & M500 Display Functions made more accessible than via the Roku::RCP module
 
+=head1 VERSION
+
+=over
+
+=item Version 0.03  March 24, 2014 Proper CPAN packaging and moved to using Roku::RCP as a base rather than the non-CPAN RokuUI module
+
+=back
 
 =head1 SYNOPSIS
 
 
- use RokuUI::RokuLCD;
+ use Roku::RokuLCD;
  my $display = RokuUI::RokuLCD->new(host => $rokuIP, port => 4444, model => 400);
  $display->open || die("Could not connect to Roku Soundbridge");
 
@@ -36,9 +43,9 @@ RokuUI::RokuLCD - M400 & M500 Display Functions made more accessible than via th
 
 =head1 DESCRIPTION
 
-RokuUI::RokuLCD was written because the standard RokuUI module appeared a bit too high level,
-so I put together some simplified display routines into a single easy-to-use object.  It inherits
-all the methods from the standard RokuUI module.
+Roku::RokuLCD was written because the RokuUI module appeared a bit too high level, so I put together some simplified display
+routines into a single easy-to-use object.  It has now been moved to using the Roku::RCP module which is easily available from
+CPAN.  It inherits all the methods from the standard Roku::RCP module.
 
 =head1 METHODS
 
@@ -304,19 +311,6 @@ determines what happens when a message is received from the remote control:
 =head1 AUTHOR
 
 Outhwaite, Ed, C<< <edstertech at googlemail.com> >>
-
-
-=head1 VERSION
-
-=over
-
-=item Version 0.01  May 12, 2008 Deemed acceptable for initial release
-
-=item Version 0.02  June 3, 2008 Ironed out some niggles with ticker, and finally have a script to release with the module
-
-=item Version 0.03  March 15, 2014 Finally got around to CPAN style packaging
-
-=back
 
 
 =head1 ACKNOWLEDGEMENTS

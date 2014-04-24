@@ -1,4 +1,4 @@
-RokuUI-RokuLCD
+Roku-RokuLCD
 
 A note on Tools4Roku...
 Why isn't Tools4Roku good enough for you ?
@@ -29,7 +29,7 @@ SUPPORT AND DOCUMENTATION
 After installing, you can find documentation for this module with the
 perldoc command.
 
-    perldoc RokuUI::RokuLCD
+    perldoc Roku::RokuLCD
 
 You can also look for information at:
 
