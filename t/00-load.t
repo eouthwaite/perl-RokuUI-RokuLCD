@@ -7,7 +7,7 @@ use Test::More;
 plan tests => 1;
 
 BEGIN {
-    use_ok( 'RokuUI::RokuLCD' ) || print "Bail out!\n";
+    use_ok( 'Roku::RokuLCD' ) || print "Bail out!\n";
 }
 
-diag( "Testing RokuUI::RokuLCD $RokuUI::RokuLCD::VERSION, Perl $], $^X" );
+diag( "Testing Roku::RokuLCD $Roku::RokuLCD::VERSION, Perl $], $^X" );

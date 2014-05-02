@@ -6,7 +6,7 @@ use warnings;
 
 require Roku::RCP;
 
-our @ISA = qw(RokuUI);
+our @ISA = qw(Roku::RCP);
 
 our $VERSION = '0.03';
 
@@ -26,7 +26,7 @@ Roku::RokuLCD - M400 & M500 Display Functions made more accessible than via the 
 
 
  use Roku::RokuLCD;
- my $display = RokuUI::RokuLCD->new(host => $rokuIP, port => 4444, model => 400);
+ my $display = Roku::RokuLCD->new(host => $rokuIP, port => 4444, model => 400);
  $display->open || die("Could not connect to Roku Soundbridge");
 
  my($rv) = $display->marquee(text => "This allows easy access to the marquee function - timings for M400 only");
@@ -56,19 +56,69 @@ Be warned this will mean less than half the display being used on an M500!
 
 =cut
 
-sub new {
-  my $class = shift;
-  my $self = {@_};
-  bless ($self, $class);
-  if ($self->{model} == 500) {
-  	$self->{display_length} = 40;
+#sub new {
+#  my $class = shift;
+#  my $self = {@_};
+#  $self = new Roku::RCP($self->{host}, @_);
+#  
+#  bless ($self, $class);
+#  if ($self->{model} == 500) {
+#  	$self->{display_length} = 40;
+#  }
+#  else {
+#  	# Assume model == 400
+#  	$self->{display_length} = 16;
+#  }
+#  return $self;
+#}
+
+
+
+sub new
+{
+  my $self = shift;
+  my $class = ref($self) || $self;
+  my ($host, %args);
+  $host = shift if (scalar(@_) % 2);
+  %args = @_;
+print "@_\n";
+print "Host: $host\n";
+  $args{Host} = $host if $host;
+#  $args{Timeout} = 60 unless defined $args{Timeout};
+
+  return undef unless $args{Host};
+
+#  $self = $class->SUPER::new(PeerAddr => $args{Host},
+  $self = $class->SUPER::new( $host,
+    Port => $args{Port} || '4444');
+ 
+  return undef unless defined $self;
+#  $self->debug($args{Debug});
+#  ${*$self}{'_RawResults'} = $args{RawResults};
+#
+#  $self->autoflush(1);
+#
+#  if (!$self->response("ready")) {
+#    $self->close();
+#    return undef;
+#  }
+
+  if ($args{model} == 500) {
+  	 ${*$self}{display_length} = 40;
   }
   else {
   	# Assume model == 400
-  	$self->{display_length} = 16;
+  	 ${*$self}{display_length} = 16;
   }
-  return $self;
+   ${*$self}{model} = $args{model};
+
+  return bless $self, $class;
 }
+
+
+#sub display_length {
+#	my ($self, $dl) = @_;
+#}
 
 =head2 marquee(text => I<text to display> [, clear => I<0/1>] [, keygrab => I<0/1/2>])
 
