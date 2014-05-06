@@ -56,71 +56,60 @@ Be warned this will mean less than half the display being used on an M500!
 
 =cut
 
-#sub new {
-#  my $class = shift;
-#  my $self = {@_};
-#  $self = new Roku::RCP($self->{host}, @_);
-#  
-#  bless ($self, $class);
-#  if ($self->{model} == 500) {
-#  	$self->{display_length} = 40;
-#  }
-#  else {
-#  	# Assume model == 400
-#  	$self->{display_length} = 16;
-#  }
-#  return $self;
-#}
-
-
 
 sub new
 {
-  my $self = shift;
-  my $class = ref($self) || $self;
-  my ($host, %args);
-  $host = shift if (scalar(@_) % 2);
-  %args = @_;
-print "@_\n";
-print "Host: $host\n";
-  $args{Host} = $host if $host;
-#  $args{Timeout} = 60 unless defined $args{Timeout};
+    my $self = shift;
+    my $class = ref($self) || $self;
+    my ($host, %args);
+    $host = shift if (scalar(@_) % 2);
+    %args = @_;
+    $args{Host} = $host if $host;
 
-  return undef unless $args{Host};
+    return undef unless $args{Host};
 
-#  $self = $class->SUPER::new(PeerAddr => $args{Host},
-  $self = $class->SUPER::new( $host,
-    Port => $args{Port} || '4444');
+    $self = $class->SUPER::new( $host,
+      Port => $args{Port} || '4444');
  
-  return undef unless defined $self;
-#  $self->debug($args{Debug});
-#  ${*$self}{'_RawResults'} = $args{RawResults};
-#
-#  $self->autoflush(1);
-#
-#  if (!$self->response("ready")) {
-#    $self->close();
-#    return undef;
-#  }
+    return undef unless defined $self;
 
-  if ($args{model} == 500) {
-  	 ${*$self}{display_length} = 40;
-  }
-  else {
-  	# Assume model == 400
-  	 ${*$self}{display_length} = 16;
-  }
-   ${*$self}{model} = $args{model};
+    if ($args{model} == 500) {
+        ${*$self}{display_length} = 40;
+    }
+    else {
+    # Assume model == 400
+  	    ${*$self}{display_length} = 16;
+    }
+    ${*$self}{model} = $args{model};
 
-  return bless $self, $class;
-}
+    return bless $self, $class;
+} # end new
 
 
-#sub display_length {
-#	my ($self, $dl) = @_;
-#}
 
-=head2 marquee(text => I<text to display> [, clear => I<0/1>] [, keygrab => I<0/1/2>])
+sub onstandby {
+	# an almost direct lift of RokuUI's ison function
+	# this is used to see whether the radio is in use
+    my $self = shift;
+  	$self->command("ps");
+
+    for my $ps ($self->sb_response) { 
+        return 1 if $ps =~ /StandbyApp/;
+    }
+    return 0;
+} # end onstandby
+
+
+sub sb_response {
+    # this is used to return any command responses, but filter out prompts
+    my $self = shift;
+    return map {
+    	if ((! /^SoundBridge\>/) && (! /^Sketch>/)) { $_; }
+    } $self->response();
+} # end sb_response
+
+
+=head2 marquee(text => I<text to display> [, clear => I<0/1>])
 
 This allows quick access to the standard sketch marquee function - timings are for text sized to
 the M400 display as I do not have access to an M500.
@@ -130,80 +119,138 @@ If 1 is passed to clear, it forces the display to clear first (default 0)
 =cut
 
 sub marquee {
-  my ($self, %args)  = @_;
-  if (! $self->{connection}) { return 0; };
+    my ($self, %args)  = @_;
 
-  my $text     =  $args{'text'}  || "";
-  my $clear    =  $args{'clear'} || 0;
-  my $keygrab  =  $args{'keygrab'};
-  if ($keygrab !~ /[0..2]/) { # 0 is a valid value
-    $keygrab = 1;
-  }
-  my $duration = (int(((length($text))+24)/25))*5;
-
-  if ($self->{debug}) { print "DEBUG text length = ", length($text), " duration = $duration\n"; }
-
-  my ($rc) = $self->msg(text => "$text",   keygrab  => $keygrab,
-                        mode => 'marquee', duration => $duration);
-  return ($rc);
+    # only take over if on standby
+    if ($self->onstandby) {
+    	my $text     =  $args{'text'}  || "";
+	    my $clear    =  $args{'clear'} || 0;
+	    # duration is a magic number - time to wait before releasing display.
+	    my $duration = (int(((length($text))+24)/25))*5;
+	
+	    if (${*$self}{debug}) { print "DEBUG text length = ", length($text), " duration = $duration\n"; }
+	
+#       $self->command('sketch');
+		if ($clear) { $self->command('sketch -c clear'); }
+		$self->command("sketch -c marquee -start \"$text\"");
+		sleep($duration);
+        $self->command('sketch -c quit');
+        $self->command('sketch -c exit');
+		my $rc = $self->sb_response;
+	
+	    return ($rc);
+    }
+    else {
+        if (${*$self}{debug}) { print "DEBUG Radio currently playing\n"; }
+        return 0;
+    }
 } # end marquee
 
 
 sub _spacefill {
-  # pad line with spaces - used to overwrite previous lines
-  # WARNING! This is an internal function, and likely to change
-  my $self = shift;
-  return 0 if !($self->{connection});
-  my %args    = @_;
-  my $text    = $args{'text'}  || "";
-  for (my $i=length($text);$i<=$self->{display_length};$i++) {
-    $text .= ' '; }
-  return $text;
+    # pad line with spaces - used to overwrite previous lines
+    # WARNING! This is an internal function, and likely to change
+    my $self = shift;
+    my %args    = @_;
+    my $text    = $args{'text'}  || "";
+    for (my $i=length($text);$i<=${*$self}{display_length};$i++) {
+      $text .= ' '; }
+    return $text;
 } # end _spacefill
 
 
+sub _text {
+	# internal function allowing easy access to the sketch "text" command
+	# usage:
+	#   _text(text => I<text to display> , duration => I<length of time to display> [, clear => I<0/1>], x => I<c/0-screen width>, y => I<0/1>) 
+    my ($self, %args)  = @_;
 
-=head2 ticker(text => I<text to display> [, y => I<0/1>] [, pause => I<seconds>] [, keygrab => I<0/1/2>])
+#    # only take over if on standby
+#    if ($self->onstandby) {
+        my $text     =  $args{'text'}     || "";
+        my $clear    =  $args{'clear'}    || 0;
+        my $x        =  $args{'x'}        || 0;
+        my $y        =  $args{'y'}        || 0;
+        my $duration =  $args{'duration'};
+
+print "\n_text:\n\$text$text\n\$clear$clear\n\$x$x\n\$y$y\n\$duration$duration\n";
+
+#        $self->command('sketch');
+#        if ($clear) { $self->command('clear'); }
+        $self->command("sketch -c clear");
+        $self->command("sketch -c text $x $y \"$text\"");
+        sleep($duration);
+#        sleep(10);
+#        $self->command('quit');
+#        my $rc = $self->sb_response;
+    
+#        return ($rc);
+#    }
+#    else {
+#        if (${*$self}{debug}) { print "DEBUG Radio currently playing\n"; }
+#        return 0;
+#    }
+} # end _text
+
+
+=head2 ticker(text => I<text to display> [, y => I<0/1>] [, pause => I<seconds>])
 
 An alternative to the marquee that can be displayed on either the top or bottom line.
 
 =cut
 
 sub ticker { # an alternative to marquee
-  my $self = shift;
-  return 0 if !($self->{connection});
-  my %args    = @_;
+  my ($self, %args)  = @_;
   my $text    = $args{'text'}  || "";
   my $pause   = $args{'pause'} || 1;
   my $y       = $args{'y'}     || 0;
-  my $keygrab = $args{'keygrab'};
-  if ($keygrab !~ /[0..2]/) { # 0 is a valid value
-    $keygrab = 1;
-  }
-
+  my $dlength = ${*$self}{display_length};
   my $rc;
-  my ($dtext,$dur,$offset,$spc,$tlength) = 0;
+  my $offset = 0;
+  my $tlength = 0;
+  my $dtext = 0;
+  my $dur = 0;
+  my $spc = 0;
+  
+    # only take over if on standby
+    if ($self->onstandby) {
+        $self->command('sketch');
+#        if ($clear) { $self->command('clear'); }
+  print "\nticker:\n\$text$text\n\$pause$pause\n\$y$y\n\$dlength$dlength\n\$offset$offset\n\$tlength$tlength\n\$dtext$dtext\n\$dur$dur\n\$spc$spc\n";
+  
+#  my ($dtext,$dur,$offset,$spc,$tlength) = 0;
   for (my $length=1;$length<(length($text));$length++) {
     $spc++;
-    $tlength++ unless ($tlength == $self->{display_length});
-    $offset++ if (length($dtext) == $self->{display_length});
+    $tlength++ unless ($tlength == $dlength);
+    $offset++ if (length($dtext) == $dlength);
     $dtext = substr($text,$offset,$tlength);
     $spc = 0 if (substr($dtext,-1,1) eq ' ');
-    if ((length($text) > $self->{display_length}) && (++$dur == $self->{display_length})) {
-      $rc = $self->msg(text => $dtext, duration => 1, keygrab => $keygrab, y => $y);
-	  if ($self->{debug}) { print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n"; }
+
+  print "\nticker loop1:\n\$length$length\n\$spc$spc\n\$y$y\n\$dlength$dlength\n\$offset$offset\n\$tlength$tlength\n\$dtext$dtext\n\$dur$dur\n\$spc$spc\n";
+
+    if ((length($text) > $dlength) && (++$dur == $dlength)) {
+      print "length > dlength && dur == dlength\n";
+      $rc = $self->_text(text => $dtext, duration => 1, y => $y);
+	  if (${*$self}{debug}) { print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n"; }
       $dur = $spc;
-      $dur = 0 if ($dur > $self->{display_length});
+      $dur = 0 if ($dur > $dlength);
     }
     else {
-      $rc = $self->msg(text => $dtext, duration => 0, keygrab => $keygrab, y => $y);
-	  if ($self->{debug}) { print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n"; }
+      print "length <= dlength || dur != dlength\n";
+      $rc = $self->_text(text => $dtext, duration => 0, y => $y);
+	  if (${*$self}{debug}) { print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n"; }
     }
-    return ($rc) if (($rc =~ /^CK/) &&  ($keygrab < 2));
+        #sleep(10);
+        $self->command('quit');
+
+    return ($rc);
   }
-  $dtext = substr($text,- $self->{display_length},$self->{display_length});
-  $self->msg(text => $dtext, duration => $pause, keygrab => $keygrab, y => $y) unless (($rc =~ /^CK/) &&  ($keygrab < 2));
+  $dtext = substr($text,- $dlength,$dlength);
+  $self->_text(text => $dtext, duration => $pause, y => $y) unless ($rc =~ /^CK/);
+        sleep(10);
+        $self->command('quit');
   return($rc);
+    }
 } # end ticker
 
 
@@ -332,21 +379,6 @@ sub teletype {
 __END__
 
 =head1 STANDARD VARIABLES
-
-=head2 keygrab
-
-determines what happens when a message is received from the remote control:
-
-=over 4
-
-=item * 0 (default) the routine is interrupted, and the keypress is passed on to the roku
-
-=item * 1 the routine is interrupted, and the keypress is returned to the caller
-
-=item * 2 the routine is not interrupted, and the keypress is discarded
-
-=back
-
 
 =head2 clear
 

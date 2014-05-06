@@ -6,34 +6,66 @@ use Test::More;
 
 use Roku::RokuLCD;
 
-plan tests => 1;
+plan tests => 2;
 
 sub connect_to_soundbridge {
     my ($roku) = @_;
 
-    my $rcp = Roku::RokuLCD->new($roku, model => 400);
+    my $rcp = Roku::RokuLCD->new($roku, model => 400, debug => 1);
 	if ($rcp) {
 	    my $msg = "Success! Connected to $roku";
-	    $rcp->command('sketch');
-	    $rcp->command('clear');
-	    $rcp->command("marquee -start \"$msg\"");
-	    sleep(10);
-	    $rcp->Quit();
-	    pass($msg);
+	    my $rv = $rcp->marquee(text => $msg);
+	    pass("$msg [return value = '$rv']");
+	    return($rcp);
 	}
 	else {
 		fail("Couldn't connect to $roku");
         #diag "$_ appears on lines @{$violated{$_}}" for keys %violated;
 	}
+}
 
-#my($rv) = $display->marquee(text => "This allows easy access to the marquee function - timings for M400 only");
+
+sub test_marquee {
+    my ($rcp) = @_;
+
+	my($rv) = $rcp->marquee(text => "This allows easy access to the marquee function - timings for M400 only");	
+}
+
+sub test_ticker {
+    my ($rcp) = @_;
+
+    my($rv) = $rcp->ticker(text => "This allows easy access to the marquee function - timings for M400 only"); 
 }
 
 
 my $rokuIP = 'roku';
 
 TODO: {
-  connect_to_soundbridge($rokuIP);
+	my $connection = connect_to_soundbridge($rokuIP);
+
+  	if ($connection) {
+        if ($connection->onstandby) { print "Off\n"; } else { print "On\n"; }
+#        test_ticker($connection);
+#       $connection->command('quit');
+  		$connection->command("displaytype");
+  		print map "$_\n", $connection->response();
+
+#        $connection->ticker(text => "This allows easy access to the marquee function - timings for M400 only");
+
+#  		print "\n1\n";
+#  		$connection->command("ps");
+#  		print map "$_\n", $connection->response();
+#  		print "\n2\n";
+#  		#print $connection->message();
+#  		#print map "$_\n", @msg;
+#  		# end with a tidy up
+#        $connection->marquee(text => "Byee", clear => 1);
+#        print "here:\n";
+#        $connection->command("ps");
+#        print map "$_\n", $connection->sb_response;
+        $connection->command('sketch -c exit');
+        $connection->Quit();
+  	}
 }
     
     
