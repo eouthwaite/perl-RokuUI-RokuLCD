@@ -50,7 +50,7 @@ TODO: {
   		$connection->command("displaytype");
   		print map "$_\n", $connection->response();
 
-        $connection->ticker(text => "Ticker is an alternative to the marquee function - timings for M400 only" , pause => 0.1);
+        $connection->ticker(text => "Ticker is an alternative to the marquee function - timings for M400 only");
 
 #  		print "\n1\n";
 #  		$connection->command("ps");

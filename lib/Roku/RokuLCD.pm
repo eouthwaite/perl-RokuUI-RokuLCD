@@ -167,8 +167,6 @@ sub _text {
 #   _text(text => I<text to display> , duration => I<length of time to display> [, clear => I<0/1>], x => I<c/0-screen width>, y => I<0/1>)
     my ( $self, %args ) = @_;
 
-    #    # only take over if on standby
-    #    if ($self->onstandby) {
     my $text  = $args{'text'}  || "";
     my $clear = $args{'clear'} || 0;
     my $x     = $args{'x'}     || 0;
@@ -178,23 +176,9 @@ sub _text {
     print
 "\n_text:\n\$text$text\n\$clear$clear\n\$x$x\n\$y$y\n\$duration$duration\n";
 
-    #        $self->command('sketch');
-    #        if ($clear) { $self->command('clear'); }
-    #        $self->command("sketch -c clear");
-    #        $self->command("sketch -c text $x $y \"$text\"");
     $self->command("text $x $y \"$text\"");
     sleep($duration);
-
-    #        sleep(10);
-    #        $self->command('quit');
-    #        my $rc = $self->sb_response;
-
-    #        return ($rc);
-    #    }
-    #    else {
-    #        if (${*$self}{debug}) { print "DEBUG Radio currently playing\n"; }
-    #        return 0;
-    #    }
+    return 1;
 }    # end _text
 
 =head2 ticker(text => I<text to display> [, y => I<0/1>] [, pause => I<seconds>])
@@ -206,10 +190,9 @@ An alternative to the marquee that can be displayed on either the top or bottom 
 sub ticker {    # an alternative to marquee
     my ( $self, %args ) = @_;
     my $text  = $args{'text'}  || "";
-    my $pause = $args{'pause'} || 1;
+    my $pause = $args{'pause'} || 5;
     my $y     = $args{'y'}     || 0;
     my $dlength = ${*$self}{display_length};
-    my $rc;
     my $offset  = 0;
     my $tlength = 0;
     my $dtext   = 0;
@@ -224,7 +207,6 @@ sub ticker {    # an alternative to marquee
         print
 "\nticker:\n\$text$text\n\$pause$pause\n\$y$y\n\$dlength$dlength\n\$offset$offset\n\$tlength$tlength\n\$dtext$dtext\n\$dur$dur\n\$spc$spc\n";
 
-        #  my ($dtext,$dur,$offset,$spc,$tlength) = 0;
         for ( my $length = 1 ; $length < ( length($text) ) ; $length++ ) {
             $spc++;
             $tlength++ unless ( $tlength == $dlength );
@@ -237,7 +219,7 @@ sub ticker {    # an alternative to marquee
 
             if ( ( length($text) > $dlength ) && ( ++$dur == $dlength ) ) {
                 print "length > dlength && dur == dlength\n";
-                $rc = $self->_text( text => $dtext, duration => 1, y => $y );
+                $self->_text( text => $dtext, duration => 0.25, y => $y );
                 if ( ${*$self}{debug} ) {
                     print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n";
                 }
@@ -246,18 +228,16 @@ sub ticker {    # an alternative to marquee
             }
             else {
                 print "length <= dlength || dur != dlength\n";
-                $rc = $self->_text( text => $dtext, duration => 0, y => $y );
+                $self->_text( text => $dtext, duration => 0.25, y => $y );
                 if ( ${*$self}{debug} ) {
                     print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n";
                 }
             }
-            sleep(0.25);
         }
         $dtext = substr( $text, -$dlength, $dlength );
-        $self->_text( text => $dtext, duration => $pause, y => $y )
-          unless ( $rc =~ /^CK/ );
-        sleep(10);
+        $self->_text( text => $dtext, duration => $pause, y => $y );
         $self->command('quit');
+        my $rc = $self->sb_response;
         return ($rc);
     }
 }    # end ticker
