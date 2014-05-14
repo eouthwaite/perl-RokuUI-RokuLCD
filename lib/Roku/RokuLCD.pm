@@ -3,6 +3,7 @@ package Roku::RokuLCD;
 use 5.006;
 use strict;
 use warnings;
+use Time::HiRes qw(sleep);
 
 require Roku::RCP;
 
@@ -56,58 +57,53 @@ Be warned this will mean less than half the display being used on an M500!
 
 =cut
 
-
-sub new
-{
+sub new {
     my $self = shift;
     my $class = ref($self) || $self;
-    my ($host, %args);
-    $host = shift if (scalar(@_) % 2);
+    my ( $host, %args );
+    $host = shift if ( scalar(@_) % 2 );
     %args = @_;
     $args{Host} = $host if $host;
 
     return undef unless $args{Host};
 
-    $self = $class->SUPER::new( $host,
-      Port => $args{Port} || '4444');
- 
+    $self = $class->SUPER::new( $host, Port => $args{Port} || '4444' );
+
     return undef unless defined $self;
 
-    if ($args{model} == 500) {
+    if ( $args{model} == 500 ) {
         ${*$self}{display_length} = 40;
     }
     else {
-    # Assume model == 400
-  	    ${*$self}{display_length} = 16;
+        # Assume model == 400
+        ${*$self}{display_length} = 16;
     }
     ${*$self}{model} = $args{model};
 
     return bless $self, $class;
-} # end new
-
-
+}    # end new
 
 sub onstandby {
-	# an almost direct lift of RokuUI's ison function
-	# this is used to see whether the radio is in use
-    my $self = shift;
-  	$self->command("ps");
 
-    for my $ps ($self->sb_response) { 
+    # an almost direct lift of RokuUI's ison function
+    # this is used to see whether the radio is in use
+    my $self = shift;
+    $self->command("ps");
+
+    for my $ps ( $self->sb_response ) {
         return 1 if $ps =~ /StandbyApp/;
     }
     return 0;
-} # end onstandby
-
+}    # end onstandby
 
 sub sb_response {
+
     # this is used to return any command responses, but filter out prompts
     my $self = shift;
     return map {
-    	if ((! /^SoundBridge\>/) && (! /^Sketch>/)) { $_; }
+        if ( ( !/^SoundBridge\>/ ) && ( !/^Sketch>/ ) ) { $_; }
     } $self->response();
-} # end sb_response
-
+}    # end sb_response
 
 =head2 marquee(text => I<text to display> [, clear => I<0/1>])
 
@@ -119,79 +115,87 @@ If 1 is passed to clear, it forces the display to clear first (default 0)
 =cut
 
 sub marquee {
-    my ($self, %args)  = @_;
+    my ( $self, %args ) = @_;
+    return 1;
 
     # only take over if on standby
-    if ($self->onstandby) {
-    	my $text     =  $args{'text'}  || "";
-	    my $clear    =  $args{'clear'} || 0;
-	    # duration is a magic number - time to wait before releasing display.
-	    my $duration = (int(((length($text))+24)/25))*5;
-	
-	    if (${*$self}{debug}) { print "DEBUG text length = ", length($text), " duration = $duration\n"; }
-	
-#       $self->command('sketch');
-		if ($clear) { $self->command('sketch -c clear'); }
-		$self->command("sketch -c marquee -start \"$text\"");
-		sleep($duration);
+    if ( $self->onstandby ) {
+        my $text  = $args{'text'}  || "";
+        my $clear = $args{'clear'} || 0;
+
+        # duration is a magic number - time to wait before releasing display.
+        my $duration = ( int( ( ( length($text) ) + 24 ) / 25 ) ) * 5;
+
+        if ( ${*$self}{debug} ) {
+            print "DEBUG text length = ", length($text),
+              " duration = $duration\n";
+        }
+
+        #       $self->command('sketch');
+        if ($clear) { $self->command('sketch -c clear'); }
+        $self->command("sketch -c marquee -start \"$text\"");
+        sleep($duration);
         $self->command('sketch -c quit');
         $self->command('sketch -c exit');
-		my $rc = $self->sb_response;
-	
-	    return ($rc);
+        my $rc = $self->sb_response;
+
+        return ($rc);
     }
     else {
-        if (${*$self}{debug}) { print "DEBUG Radio currently playing\n"; }
+        if ( ${*$self}{debug} ) { print "DEBUG Radio currently playing\n"; }
         return 0;
     }
-} # end marquee
-
+}    # end marquee
 
 sub _spacefill {
+
     # pad line with spaces - used to overwrite previous lines
     # WARNING! This is an internal function, and likely to change
     my $self = shift;
-    my %args    = @_;
-    my $text    = $args{'text'}  || "";
-    for (my $i=length($text);$i<=${*$self}{display_length};$i++) {
-      $text .= ' '; }
+    my %args = @_;
+    my $text = $args{'text'} || "";
+    for ( my $i = length($text) ; $i <= ${*$self}{display_length} ; $i++ ) {
+        $text .= ' ';
+    }
     return $text;
-} # end _spacefill
-
+}    # end _spacefill
 
 sub _text {
-	# internal function allowing easy access to the sketch "text" command
-	# usage:
-	#   _text(text => I<text to display> , duration => I<length of time to display> [, clear => I<0/1>], x => I<c/0-screen width>, y => I<0/1>) 
-    my ($self, %args)  = @_;
 
-#    # only take over if on standby
-#    if ($self->onstandby) {
-        my $text     =  $args{'text'}     || "";
-        my $clear    =  $args{'clear'}    || 0;
-        my $x        =  $args{'x'}        || 0;
-        my $y        =  $args{'y'}        || 0;
-        my $duration =  $args{'duration'};
+# internal function allowing easy access to the sketch "text" command
+# usage:
+#   _text(text => I<text to display> , duration => I<length of time to display> [, clear => I<0/1>], x => I<c/0-screen width>, y => I<0/1>)
+    my ( $self, %args ) = @_;
 
-print "\n_text:\n\$text$text\n\$clear$clear\n\$x$x\n\$y$y\n\$duration$duration\n";
+    #    # only take over if on standby
+    #    if ($self->onstandby) {
+    my $text  = $args{'text'}  || "";
+    my $clear = $args{'clear'} || 0;
+    my $x     = $args{'x'}     || 0;
+    my $y     = $args{'y'}     || 0;
+    my $duration = $args{'duration'};
 
-#        $self->command('sketch');
-#        if ($clear) { $self->command('clear'); }
-        $self->command("sketch -c clear");
-        $self->command("sketch -c text $x $y \"$text\"");
-        sleep($duration);
-#        sleep(10);
-#        $self->command('quit');
-#        my $rc = $self->sb_response;
-    
-#        return ($rc);
-#    }
-#    else {
-#        if (${*$self}{debug}) { print "DEBUG Radio currently playing\n"; }
-#        return 0;
-#    }
-} # end _text
+    print
+"\n_text:\n\$text$text\n\$clear$clear\n\$x$x\n\$y$y\n\$duration$duration\n";
 
+    #        $self->command('sketch');
+    #        if ($clear) { $self->command('clear'); }
+    #        $self->command("sketch -c clear");
+    #        $self->command("sketch -c text $x $y \"$text\"");
+    $self->command("text $x $y \"$text\"");
+    sleep($duration);
+
+    #        sleep(10);
+    #        $self->command('quit');
+    #        my $rc = $self->sb_response;
+
+    #        return ($rc);
+    #    }
+    #    else {
+    #        if (${*$self}{debug}) { print "DEBUG Radio currently playing\n"; }
+    #        return 0;
+    #    }
+}    # end _text
 
 =head2 ticker(text => I<text to display> [, y => I<0/1>] [, pause => I<seconds>])
 
@@ -199,60 +203,64 @@ An alternative to the marquee that can be displayed on either the top or bottom 
 
 =cut
 
-sub ticker { # an alternative to marquee
-  my ($self, %args)  = @_;
-  my $text    = $args{'text'}  || "";
-  my $pause   = $args{'pause'} || 1;
-  my $y       = $args{'y'}     || 0;
-  my $dlength = ${*$self}{display_length};
-  my $rc;
-  my $offset = 0;
-  my $tlength = 0;
-  my $dtext = 0;
-  my $dur = 0;
-  my $spc = 0;
-  
+sub ticker {    # an alternative to marquee
+    my ( $self, %args ) = @_;
+    my $text  = $args{'text'}  || "";
+    my $pause = $args{'pause'} || 1;
+    my $y     = $args{'y'}     || 0;
+    my $dlength = ${*$self}{display_length};
+    my $rc;
+    my $offset  = 0;
+    my $tlength = 0;
+    my $dtext   = 0;
+    my $dur     = 0;
+    my $spc     = 0;
+
     # only take over if on standby
-    if ($self->onstandby) {
+    if ( $self->onstandby ) {
         $self->command('sketch');
-#        if ($clear) { $self->command('clear'); }
-  print "\nticker:\n\$text$text\n\$pause$pause\n\$y$y\n\$dlength$dlength\n\$offset$offset\n\$tlength$tlength\n\$dtext$dtext\n\$dur$dur\n\$spc$spc\n";
-  
-#  my ($dtext,$dur,$offset,$spc,$tlength) = 0;
-  for (my $length=1;$length<(length($text));$length++) {
-    $spc++;
-    $tlength++ unless ($tlength == $dlength);
-    $offset++ if (length($dtext) == $dlength);
-    $dtext = substr($text,$offset,$tlength);
-    $spc = 0 if (substr($dtext,-1,1) eq ' ');
 
-  print "\nticker loop1:\n\$length$length\n\$spc$spc\n\$y$y\n\$dlength$dlength\n\$offset$offset\n\$tlength$tlength\n\$dtext$dtext\n\$dur$dur\n\$spc$spc\n";
+        #        if ($clear) { $self->command('clear'); }
+        print
+"\nticker:\n\$text$text\n\$pause$pause\n\$y$y\n\$dlength$dlength\n\$offset$offset\n\$tlength$tlength\n\$dtext$dtext\n\$dur$dur\n\$spc$spc\n";
 
-    if ((length($text) > $dlength) && (++$dur == $dlength)) {
-      print "length > dlength && dur == dlength\n";
-      $rc = $self->_text(text => $dtext, duration => 1, y => $y);
-	  if (${*$self}{debug}) { print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n"; }
-      $dur = $spc;
-      $dur = 0 if ($dur > $dlength);
-    }
-    else {
-      print "length <= dlength || dur != dlength\n";
-      $rc = $self->_text(text => $dtext, duration => 0, y => $y);
-	  if (${*$self}{debug}) { print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n"; }
-    }
-        #sleep(10);
-        $self->command('quit');
+        #  my ($dtext,$dur,$offset,$spc,$tlength) = 0;
+        for ( my $length = 1 ; $length < ( length($text) ) ; $length++ ) {
+            $spc++;
+            $tlength++ unless ( $tlength == $dlength );
+            $offset++ if ( length($dtext) == $dlength );
+            $dtext = substr( $text, $offset, $tlength );
+            $spc = 0 if ( substr( $dtext, -1, 1 ) eq ' ' );
 
-    return ($rc);
-  }
-  $dtext = substr($text,- $dlength,$dlength);
-  $self->_text(text => $dtext, duration => $pause, y => $y) unless ($rc =~ /^CK/);
+            print
+"\nticker loop1:\n\$length$length\n\$spc$spc\n\$y$y\n\$dlength$dlength\n\$offset$offset\n\$tlength$tlength\n\$dtext$dtext\n\$dur$dur\n\$spc$spc\n";
+
+            if ( ( length($text) > $dlength ) && ( ++$dur == $dlength ) ) {
+                print "length > dlength && dur == dlength\n";
+                $rc = $self->_text( text => $dtext, duration => 1, y => $y );
+                if ( ${*$self}{debug} ) {
+                    print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n";
+                }
+                $dur = $spc;
+                $dur = 0 if ( $dur > $dlength );
+            }
+            else {
+                print "length <= dlength || dur != dlength\n";
+                $rc = $self->_text( text => $dtext, duration => 0, y => $y );
+                if ( ${*$self}{debug} ) {
+                    print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n";
+                }
+            }
+            sleep(0.25);
+        }
+        $dtext = substr( $text, -$dlength, $dlength );
+        $self->_text( text => $dtext, duration => $pause, y => $y )
+          unless ( $rc =~ /^CK/ );
         sleep(10);
         $self->command('quit');
-  return($rc);
+        return ($rc);
     }
-} # end ticker
-
+}    # end ticker
 
 =head2 teletype(text => I<text to display> [, pause => I<seconds>] [, [linepause =>  I<seconds>] [, keygrab => I<0/1/2>])
 
@@ -265,114 +273,234 @@ length of time to pause at the end of the text.
 =cut
 
 sub teletype {
-  my $self = shift;
-  if (! $self->{connection}) { return 0; };
-  my %args      = @_;
-  my $text      = $args{'text'}      || ""; # default text is blank
-  my $pause     = $args{'pause'}     || 2;  # length of time to wait in seconds before next line
-  my $linepause = $args{'linepause'} || 1;  # length of additional time to wait in seconds after message 
-  my $keygrab   = $args{'keygrab'};
-  if ($keygrab !~ /[0..2]/) { # 0 is a valid value
-    $keygrab = 1;
-  }
+    my $self = shift;
+    if ( !$self->{connection} ) { return 0; }
+    my %args = @_;
+    my $text = $args{'text'} || "";    # default text is blank
+    my $pause =
+      $args{'pause'} || 2;  # length of time to wait in seconds before next line
+    my $linepause = $args{'linepause'}
+      || 1;    # length of additional time to wait in seconds after message
+    my $keygrab = $args{'keygrab'};
+    if ( $keygrab !~ /[0..2]/ ) {    # 0 is a valid value
+        $keygrab = 1;
+    }
 
-  # Clear display first
-  $self->msg(clear=> 1, duration => 0, keygrab => $keygrab, y => 0, text => ' ');
-  $self->msg(clear=> 1, duration => 0, keygrab => $keygrab, y => 1, text => ' ');
+    # Clear display first
+    $self->msg(
+        clear    => 1,
+        duration => 0,
+        keygrab  => $keygrab,
+        y        => 0,
+        text     => ' '
+    );
+    $self->msg(
+        clear    => 1,
+        duration => 0,
+        keygrab  => $keygrab,
+        y        => 1,
+        text     => ' '
+    );
 
-  my (@string);
-  my $rc;
-  my ($line_length,$length, $y) = 0;
-  my ($y0_string, $y1_string) = undef;
+    my (@string);
+    my $rc;
+    my ( $line_length, $length, $y ) = 0;
+    my ( $y0_string, $y1_string ) = undef;
 
-  my (@paras) = split(/\n/,$text);
-  foreach (@paras) {
-    @string = split(/ /);
+    my (@paras) = split( /\n/, $text );
+    foreach (@paras) {
+        @string = split(/ /);
 
-    for (my $ary_inx=0;$ary_inx<=$#string;$ary_inx++) {
-      if ((length($string[$ary_inx]) + $line_length) < $self->{display_length}) {
-        if ($y == 0) {
-          $y0_string .= ' ' if ($y0_string);
-          $y0_string .= $string[$ary_inx];
-          $line_length+=(length($string[$ary_inx]));
-          $line_length++;
+        for ( my $ary_inx = 0 ; $ary_inx <= $#string ; $ary_inx++ ) {
+            if ( ( length( $string[$ary_inx] ) + $line_length ) <
+                $self->{display_length} )
+            {
+                if ( $y == 0 ) {
+                    $y0_string .= ' ' if ($y0_string);
+                    $y0_string .= $string[$ary_inx];
+                    $line_length += ( length( $string[$ary_inx] ) );
+                    $line_length++;
+                }
+                else    # we'll assume it's line 1
+                {
+                    $y1_string .= ' ' if ($y1_string);
+                    $y1_string .= $string[$ary_inx];
+                    $line_length += ( length( $string[$ary_inx] ) );
+                    $line_length++;
+                }
+            }
+            elsif ( ( $string[$ary_inx] =~ /^(\S+\W)(\S+)$/ )
+                && ( ( length($1) + $line_length + 1 ) <
+                    $self->{display_length} ) )
+            { # split on non-word character, we're adding one because there's a space
+                if ( $y == 0 ) {
+                    $y0_string .= ' ' if ($y0_string);
+                    $y0_string .= $1;
+                    $rc = $self->ticker(
+                        text    => $y0_string,
+                        y       => 0,
+                        keygrab => $keygrab,
+                        pause   => 0
+                    );
+                    $y           = 1;
+                    $y1_string   = $2;
+                    $line_length = length($2);
+                }
+                else {
+                    $y1_string .= ' ' if ($y1_string);
+                    $y1_string .= $1;
+                    $rc = $self->msg(
+                        clear    => 1,
+                        text     => $y0_string,
+                        duration => 0,
+                        keygrab  => $keygrab,
+                        y        => 0
+                    );
+                    $rc = $self->msg(
+                        text     => $self->_spacefill( text => ' ' ),
+                        duration => 0,
+                        keygrab  => $keygrab,
+                        y        => 1
+                    );
+                    $rc = $self->ticker(
+                        text    => $y1_string,
+                        y       => 1,
+                        keygrab => $keygrab,
+                        pause   => 0
+                    );
+                    $y0_string = substr(
+                        $y1_string,
+                        ( -$self->{display_length} ),
+                        $self->{display_length}
+                    );    # only display what was on 2nd line
+                    $y1_string   = $2;
+                    $line_length = length($2);
+                }
+            }
+            else {        # too big for line
+                if ( $y == 0 ) {
+                    $rc = $self->ticker(
+                        text    => $y0_string,
+                        y       => 0,
+                        keygrab => $keygrab,
+                        pause   => 0
+                    );
+                    $y           = 1;
+                    $y1_string   = $string[$ary_inx];
+                    $line_length = ( length( $string[$ary_inx] ) );
+                }
+                else {
+                    $rc = $self->msg(
+                        text     => $self->_spacefill( text => $y0_string ),
+                        duration => 0,
+                        keygrab  => $keygrab,
+                        y        => 0
+                    );
+                    $rc = $self->msg(
+                        text     => $self->_spacefill( text => ' ' ),
+                        duration => 0,
+                        keygrab  => $keygrab,
+                        y        => 1
+                    );
+                    $rc = $self->ticker(
+                        text    => $y1_string,
+                        y       => 1,
+                        keygrab => $keygrab,
+                        pause   => 0
+                    );
+                    $y0_string = substr(
+                        $y1_string,
+                        ( -$self->{display_length} ),
+                        $self->{display_length}
+                    );    # only display what was on 2nd line
+                    $y1_string   = $string[$ary_inx];
+                    $line_length = ( length( $string[$ary_inx] ) );
+                }
+            }
         }
-        else # we'll assume it's line 1
-        {
-          $y1_string .= ' ' if ($y1_string);
-          $y1_string .= $string[$ary_inx];
-          $line_length+=(length($string[$ary_inx]));
-          $line_length++;
+        unless ( ( $rc =~ /^CK/ ) && ( $keygrab < 2 ) ) {
+            if ($y1_string) {
+                $rc = $self->msg(
+                    text     => $self->_spacefill( text => $y0_string ),
+                    duration => 0,
+                    keygrab  => $keygrab,
+                    y        => 0
+                );
+                $rc = $self->msg(
+                    text     => $self->_spacefill( text => ' ' ),
+                    duration => 0,
+                    keygrab  => $keygrab,
+                    y        => 1
+                );
+                $rc = $self->ticker(
+                    text     => $y1_string,
+                    duration => $linepause,
+                    keygrab  => $keygrab,
+                    y        => 1
+                );
+            }
+            else {
+                for ( my $i = length($y0_string) ; $i <= 16 ; $i++ ) {
+                    $y0_string .= ' ';
+                }
+                $rc = $self->msg(
+                    text     => $y0_string,
+                    duration => 0,
+                    keygrab  => $keygrab,
+                    y        => 0
+                );
+                $rc = $self->msg(
+                    text     => $self->_spacefill( text => ' ' ),
+                    duration => $linepause,
+                    keygrab  => $keygrab,
+                    y        => 1
+                );
+            }
         }
-      }
-      elsif (($string[$ary_inx] =~ /^(\S+\W)(\S+)$/) && ((length($1) + $line_length + 1) < $self->{display_length})) { # split on non-word character, we're adding one because there's a space
-        if ($y == 0) {
-          $y0_string .= ' ' if ($y0_string);
-          $y0_string .= $1;
-          $rc = $self->ticker(text => $y0_string, y=>0, keygrab => $keygrab, pause=>0);
-          $y = 1;
-          $y1_string = $2;
-          $line_length=length($2);
+        $y         = 1;
+        $y0_string = substr(
+            $y1_string,
+            ( -$self->{display_length} ),
+            $self->{display_length}
+        );    # only display what was on 2nd line
+        $y1_string   = undef;
+        $line_length = 0;
+    }
+    unless ( ( $rc =~ /^CK/ ) && ( $keygrab < 2 ) ) {
+        if ($y1_string) {
+            $rc = $self->msg(
+                text     => $y0_string,
+                duration => 0,
+                keygrab  => $keygrab,
+                y        => 0
+            );
+            $rc = $self->msg(
+                text     => $self->_spacefill( text => ' ' ),
+                duration => 0,
+                keygrab  => $keygrab,
+                y        => 1
+            );
+            $rc = $self->msg(
+                text     => $y1_string,
+                duration => $linepause,
+                keygrab  => $keygrab,
+                y        => 1
+            );
         }
         else {
-          $y1_string .= ' ' if ($y1_string);
-          $y1_string .= $1;
-          $rc = $self->msg(clear => 1, text => $y0_string, duration => 0, keygrab => $keygrab, y => 0);
-          $rc = $self->msg(text => $self->_spacefill(text => ' '), duration => 0, keygrab => $keygrab, y => 1);
-          $rc = $self->ticker(text => $y1_string, y => 1, keygrab => $keygrab, pause => 0);
-          $y0_string = substr($y1_string, (- $self->{display_length}), $self->{display_length});  # only display what was on 2nd line
-          $y1_string = $2;
-          $line_length=length($2);
+            $rc = $self->msg(
+                clear    => 1,
+                text     => $y0_string,
+                duration => $linepause,
+                keygrab  => $keygrab,
+                y        => 0
+            );
         }
-      }
-      else {  # too big for line
-        if ($y == 0) {
-          $rc = $self->ticker(text => $y0_string, y => 0, keygrab => $keygrab, pause => 0);
-          $y = 1;
-          $y1_string = $string[$ary_inx];
-          $line_length=(length($string[$ary_inx]));
-        }
-        else {
-          $rc = $self->msg(text => $self->_spacefill(text => $y0_string), duration => 0, keygrab => $keygrab, y => 0);
-          $rc = $self->msg(text => $self->_spacefill(text => ' '), duration => 0, keygrab => $keygrab, y => 1);
-          $rc = $self->ticker(text => $y1_string, y => 1, keygrab => $keygrab, pause => 0);
-          $y0_string = substr($y1_string, (- $self->{display_length}), $self->{display_length});  # only display what was on 2nd line
-          $y1_string = $string[$ary_inx];
-          $line_length=(length($string[$ary_inx]));
-        }
-      }
     }
-    unless (($rc =~ /^CK/) &&  ($keygrab < 2)) {
-      if ($y1_string) {
-        $rc = $self->msg(text => $self->_spacefill(text => $y0_string), duration => 0, keygrab => $keygrab, y => 0);
-        $rc = $self->msg(text => $self->_spacefill(text => ' '), duration => 0, keygrab => $keygrab, y => 1);
-        $rc = $self->ticker(text => $y1_string, duration => $linepause, keygrab => $keygrab, y => 1);
-      }
-      else {
-        for (my $i=length($y0_string);$i<=16;$i++) { $y0_string .= ' '; }
-        $rc = $self->msg(text => $y0_string, duration => 0, keygrab => $keygrab, y => 0);
-        $rc = $self->msg(text => $self->_spacefill(text => ' '), duration => $linepause, keygrab => $keygrab, y => 1);
-      }
-    }
-    $y = 1;
-    $y0_string = substr($y1_string, (- $self->{display_length}), $self->{display_length}); # only display what was on 2nd line
-    $y1_string = undef;
-    $line_length=0;
-  }
-  unless (($rc =~ /^CK/) &&  ($keygrab < 2)) {
-    if ($y1_string) {
-      $rc = $self->msg(text => $y0_string, duration => 0, keygrab => $keygrab, y => 0);
-      $rc = $self->msg(text => $self->_spacefill(text => ' '), duration => 0, keygrab => $keygrab, y => 1);
-      $rc = $self->msg(text => $y1_string, duration => $linepause, keygrab => $keygrab, y => 1);
-    }
-    else {
-      $rc = $self->msg(clear => 1, text => $y0_string, duration => $linepause, keygrab => $keygrab, y => 0);
-    }
-  }
-  return($rc);
-} # end teletype
+    return ($rc);
+}    # end teletype
 
-;1;
+1;
 
 # end of module, additional documentation below
 

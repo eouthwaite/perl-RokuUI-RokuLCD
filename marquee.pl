@@ -34,7 +34,7 @@ sub test_marquee {
 sub test_ticker {
     my ($rcp) = @_;
 
-    my($rv) = $rcp->ticker(text => "This allows easy access to the marquee function - timings for M400 only"); 
+    my($rv) = $rcp->ticker(text => "Ticker is an alternative to the marquee function - timings for M400 only");
 }
 
 
@@ -50,7 +50,7 @@ TODO: {
   		$connection->command("displaytype");
   		print map "$_\n", $connection->response();
 
-#        $connection->ticker(text => "This allows easy access to the marquee function - timings for M400 only");
+        $connection->ticker(text => "Ticker is an alternative to the marquee function - timings for M400 only" , pause => 0.1);
 
 #  		print "\n1\n";
 #  		$connection->command("ps");
