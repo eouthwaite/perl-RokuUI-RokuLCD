@@ -179,9 +179,6 @@ sub _text {
     my $y     = $args{'y'}     || 0;
     my $duration = $args{'duration'};
 
-    print
-"\n_text:\n\$text\"$text\"\n\$x\"$x\"\n\$y\"$y\"\n\$duration\"$duration\"\n";
-
     $self->command("text $x $y \"$text\"");
     sleep($duration);
     return 1;
