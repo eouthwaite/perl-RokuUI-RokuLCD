@@ -180,7 +180,7 @@ sub _text {
     my $duration = $args{'duration'};
 
     print
-"\n_text:\n\$text$text\n\$x$x\n\$y$y\n\$duration$duration\n";
+"\n_text:\n\$text\"$text\"\n\$x\"$x\"\n\$y\"$y\"\n\$duration\"$duration\"\n";
 
     $self->command("text $x $y \"$text\"");
     sleep($duration);
@@ -195,6 +195,23 @@ An alternative to the marquee that can be displayed on either the top or bottom 
 
 sub ticker {    # an alternative to marquee
     my ( $self, %args ) = @_;
+    # only take over if on standby
+    if (! $self->onstandby ) {
+        return ("Soundbridge running");
+    }
+    
+    $self->command('sketch');
+
+    $self->_ticker(%args);
+
+    $self->command('quit');
+    my $rc = $self->sb_response;
+    return ($rc);
+} # end ticker
+
+
+sub _ticker {    # the real function - also used by teletype
+    my ( $self, %args ) = @_;
     my $text  = $args{'text'}  || "";
     my $pause = $args{'pause'} || 5;
     my $y     = $args{'y'}     || 0;
@@ -204,13 +221,6 @@ sub ticker {    # an alternative to marquee
     my $dtext   = 0;
     my $dur     = 0;
     my $spc     = 0;
-
-    # only take over if on standby
-    if (! $self->onstandby ) {
-        return ("Soundbridge running");
-    }
-    
-    $self->command('sketch');
 
     for ( my $length = 1 ; $length < ( length($text) ) ; $length++ ) {
         $spc++;
@@ -238,12 +248,9 @@ sub ticker {    # an alternative to marquee
     }
     $dtext = substr( $text, -$dlength, $dlength );
     $self->_text( text => $dtext, duration => $pause, y => $y );
-    $self->command('quit');
-    my $rc = $self->sb_response;
-    return ($rc);
-}    # end ticker
+}    # end _ticker
 
-=head2 teletype(text => I<text to display> [, pause => I<seconds>] [, [linepause =>  I<seconds>] [, keygrab => I<0/1/2>])
+=head2 teletype(text => I<text to display> [, pause => I<seconds>] [, [linepause =>  I<seconds>])
 
 An alternative to using marquee to display large quantities of text, scrolling the display upwards rather than from 
 the right.
@@ -256,46 +263,38 @@ length of time to pause at the end of the text.
 sub teletype {
     my ( $self, %args ) = @_;
     my $text      = $args{'text'}      || ""; # default text is blank
-    my $pause     = $args{'pause'}     || 2;  # length of time to wait in seconds before next line
-    my $linepause = $args{'linepause'} || 1;  # length of additional time to wait in seconds after message
+    my $linepause = $args{'linepause'} || 1;  # length of time to wait in seconds before next line
+    my $pause     = $args{'pause'}     || 1;  # length of additional time to wait in seconds after message
 
     # only take over if on standby
     if (! $self->onstandby ) {
     	return ("Soundbridge running");
     }
 
-    $self->command('sketch');
+    $self->command('sketch'); # put the command session into sketch mode
 
     # Clear display first
     $self->_clear;
 
-    my $dlength = ${*$self}{display_length};
-
-
-#        print
-#"\nticker:\n\$text$text\n\$pause$pause\n\$y$y\n\$dlength$dlength\n\$offset$offset\n\$tlength$tlength\n\$dtext$dtext\n\$dur$dur\n\$spc$spc\n";
-
-#            print
-#"\nticker loop1:\n\$length$length\n\$spc$spc\n\$y$y\n\$dlength$dlength\n\$offset$offset\n\$tlength$tlength\n\$dtext$dtext\n\$dur$dur\n\$spc$spc\n";
-
-
-
-
     my @string;
-    my $rc;
-    my $length = 0;
-    my $line_length = 0;
-    my $y = 0;
-    my $y0_string = undef;
-    my $y1_string = undef;
+    my $rc;                                      # message returned by method
+    my $dlength     = ${*$self}{display_length}; # width of display
+    my $line_length = 0;                         # current length of line
+    my $y           = 0;                         # start at the top
+    my $y0_string   = undef;                     # used to build the top string
+    my $y1_string   = undef;                     # used to build the bottom string
 
-    my (@paras) = split( /\n/, $text );
+    my (@paras) = split( /\n/, $text );  # break the text into paragraphs
     foreach (@paras) {
-        @string = split(/ /);
+        @string = split(/ /);            # break the paragraph into words (split on space)
 
+        # work through each word in the array (ary_inx holds the current word's position)
         for ( my $ary_inx = 0 ; $ary_inx <= $#string ; $ary_inx++ ) {
+
             if ( ( length( $string[$ary_inx] ) + $line_length ) <
                 $dlength )
+                # if the word will fit on the current line
+                # (note less than as a space needs to be accomodated too)
             {
                 if ( $y == 0 ) {
                     $y0_string .= ' ' if ($y0_string);
@@ -311,17 +310,18 @@ sub teletype {
                     $line_length++;
                 }
             }
+            # elsif the word will not fit on the current line but contains a non-word character - split on that (add one to the length because there's a space)
             elsif ( ( $string[$ary_inx] =~ /^(\S+\W)(\S+)$/ )
                 && ( ( length($1) + $line_length + 1 ) <
                     $dlength ) )
-            { # split on non-word character, we're adding one because there's a space
+            {
                 if ( $y == 0 ) {
                     $y0_string .= ' ' if ($y0_string);
                     $y0_string .= $1;
-                    $rc = $self->ticker(
+                    $rc = $self->_ticker(
                         text    => $y0_string,
                         y       => 0,
-                        pause   => 0
+                        pause   => 0.25
                     );
                     $y           = 1;
                     $y1_string   = $2;
@@ -340,10 +340,10 @@ sub teletype {
                         duration => 0,
                         y        => 1
                     );
-                    $rc = $self->ticker(
+                    $rc = $self->_ticker(
                         text    => $y1_string,
                         y       => 1,
-                        pause   => 0
+                        pause   => 0.25
                     );
                     $y0_string = substr(
                         $y1_string,
@@ -356,10 +356,10 @@ sub teletype {
             }
             else {        # too big for line
                 if ( $y == 0 ) {
-                    $rc = $self->ticker(
+                    $rc = $self->_ticker(
                         text    => $y0_string,
                         y       => 0,
-                        pause   => 0
+                        pause   => 0.25
                     );
                     $y           = 1;
                     $y1_string   = $string[$ary_inx];
@@ -376,10 +376,10 @@ sub teletype {
                         duration => 0,
                         y        => 1
                     );
-                    $rc = $self->ticker(
+                    $rc = $self->_ticker(
                         text    => $y1_string,
                         y       => 1,
-                        pause   => 0
+                        pause   => 0.25
                     );
                     $y0_string = substr(
                         $y1_string,
@@ -403,9 +403,9 @@ sub teletype {
                     duration => 0,
                     y        => 1
                 );
-                $rc = $self->ticker(
+                $rc = $self->_ticker(
                     text     => $y1_string,
-                    duration => $linepause,
+                    pause    => $linepause,
                     y        => 1
                 );
             }
@@ -454,12 +454,20 @@ sub teletype {
         }
         else {
             $rc = $self->_text(
-                text     => $y0_string,
-                duration => $linepause,
+                text     => $self->_spacefill( text => $y0_string ),
+                duration => 0,
                 y        => 0
+            );
+            $rc = $self->_text(
+                text     => $self->_spacefill( text => ' ' ),
+                duration => $linepause,
+                y        => 1
             );
         }
     }
+    sleep($pause);
+    $self->command('quit');
+    $rc = $self->sb_response;
     return ($rc);
 }    # end teletype
 
