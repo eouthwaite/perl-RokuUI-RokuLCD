@@ -10,10 +10,10 @@ However, my M400 can't display pictures and has a very small screen.  I
 also found the RokuUI module a little clunky and wanted to create an
 easier interface to send display updates - hence the RokuLCD module.
 
-Note that the RokuLCD module requires the RokuUI module as it inherits
-and uses the RokuUI methods.  For more information on RokuLCD, the
-documentation is encapsulated within the module and can be accessed via
-a tool such as pod2html.
+Since the RokuUI module is not available on CPAN, I have revised the
+RokuLCD module to use the Roku::RCP module for inherited methods.  For
+more information on RokuLCD, the documentation is encapsulated within
+the module and can be accessed via a tool such as pod2html.
 
 INSTALLATION
 
