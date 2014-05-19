@@ -518,6 +518,17 @@ __END__
 
 =back
 
+
+=head1 BUGS AND LIMITATIONS
+
+=head2 To do list
+
+=over 4
+
+=item * teletype method requires refactoring.
+
+=back
+
 =head1 AUTHOR
 
 Outhwaite, Ed, C<< <edstertech at googlemail.com> >>
