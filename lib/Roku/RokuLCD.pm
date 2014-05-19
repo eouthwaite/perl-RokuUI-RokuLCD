@@ -119,28 +119,6 @@ sub new {
     return bless $self, $class;
 }    # end new
 
-sub onstandby {
-
-    # an almost direct lift of RokuUI's ison function
-    # this is used to see whether the radio is in use
-    my $self = shift;
-    $self->command("ps");
-
-    for my $ps ( $self->sb_response ) {
-        return 1 if $ps =~ /StandbyApp/;
-    }
-    return 0;
-}    # end onstandby
-
-sub sb_response {
-
-    # this is used to return any command responses, but filter out prompts
-    my $self = shift;
-    return map {
-        if ( ( !/^SoundBridge\>/ ) && ( !/^Sketch>/ ) ) { $_; }
-    } $self->response();
-}    # end sb_response
-
 =head2 marquee(text => I<text to display> [, clear => I<0/1>])
 
 This allows quick access to the standard sketch marquee function - timings are for text sized to
@@ -499,6 +477,40 @@ sub teletype {
     $rc = $self->sb_response;
     return ($rc);
 }    # end teletype
+
+=head2 onstandby
+
+Checks whether the Soundbridge is on standby (returns true) or in use (returns false)
+
+=cut
+
+sub onstandby {
+
+    # an almost direct lift of RokuUI's ison function
+    # this is used to see whether the radio is in use
+    my $self = shift;
+    $self->command("ps");
+
+    for my $ps ( $self->sb_response ) {
+        return 1 if $ps =~ /StandbyApp/;
+    }
+    return 0;
+}    # end onstandby
+
+=head2 sb_response
+
+Used to return any command responses; filtering out prompts
+
+=cut
+
+sub sb_response {
+
+    # this is used to return any command responses, but filter out prompts
+    my $self = shift;
+    return map {
+        if ( ( !/^SoundBridge\>/ ) && ( !/^Sketch>/ ) ) { $_; }
+    } $self->response();
+}    # end sb_response
 
 1;
 
