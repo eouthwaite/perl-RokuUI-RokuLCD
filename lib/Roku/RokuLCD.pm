@@ -1,6 +1,6 @@
 package Roku::RokuLCD;
 
-use 5.006;
+use v5.10.1;
 use strict;
 use warnings;
 use Time::HiRes qw(sleep);
