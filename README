@@ -9,13 +9,10 @@ Roku::RCP module for inherited methods.  For more information on RokuLCD,
 the documentation is encapsulated within the module and can be accessed
 via a tool such as pod2html.
 
-If you have a more advanced Soundbridge, I'd recommend heading over to
+The M400 & M500 can't display pictures and have small screens.  If you
+have a more advanced Soundbridge, I'd recommend heading over to 
 http://billiatjapan.netfirms.com/Tools4Roku/ and downloading Juergen's
 script.
-
-However, my M400 can't display pictures and has a very small screen.  I
-also found the RokuUI module a little clunky and wanted to create an
-easier interface to send display updates - hence the RokuLCD module.
 
 
 INSTALLATION
