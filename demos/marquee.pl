@@ -11,7 +11,7 @@ plan tests => 2;
 sub connect_to_soundbridge {
     my ($roku) = @_;
 
-    my $rcp = Roku::RokuLCD->new($roku, model => 400, debug => 1);
+    my $rcp = Roku::RokuLCD->new($roku, debug => 1);
 	if ($rcp) {
 	    my $msg = "Success! Connected to $roku";
 	    my $rv = $rcp->marquee(text => $msg);
@@ -20,7 +20,6 @@ sub connect_to_soundbridge {
 	}
 	else {
 		fail("Couldn't connect to $roku");
-        #diag "$_ appears on lines @{$violated{$_}}" for keys %violated;
 	}
 }
 
@@ -37,6 +36,12 @@ sub test_ticker {
     my($rv) = $rcp->ticker(text => "Ticker is an alternative to the marquee function - timings for M400 only");
 }
 
+sub test_teletype {
+    my ($rcp) = @_;
+
+    my($rv) = $rcp->ticker(text => "Ticker is an alternative to the marquee function - timings for M400 only");
+}
+
 
 my $rokuIP = 'roku';
 
@@ -45,26 +50,13 @@ TODO: {
 
   	if ($connection) {
         if ($connection->onstandby) { print "Off\n"; } else { print "On\n"; }
-#        test_ticker($connection);
-#       $connection->command('quit');
+        test_ticker($connection);
   		$connection->command("displaytype");
   		print map "$_\n", $connection->response();
 
-#        $connection->ticker(text => "Ticker is an alternative to the marquee function - timings for M400 only");
+        $connection->ticker(text => "Ticker is an alternative to the marquee function - timings for M400 only");
         $connection->teletype(text => "Teletype is another alternative to the marquee function\n - Timings for M400 only");
 
-#  		print "\n1\n";
-#  		$connection->command("ps");
-#  		print map "$_\n", $connection->response();
-#  		print "\n2\n";
-#  		#print $connection->message();
-#  		#print map "$_\n", @msg;
-#  		# end with a tidy up
-#        $connection->marquee(text => "Byee", clear => 1);
-#        print "here:\n";
-#        $connection->command("ps");
-#        print map "$_\n", $connection->sb_response;
-        $connection->command('sketch -c exit');
         $connection->Quit();
   	}
 }

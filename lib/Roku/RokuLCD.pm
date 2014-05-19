@@ -7,7 +7,7 @@ use Time::HiRes qw(sleep);
 
 require Roku::RCP;
 
-our @ISA = qw(Roku::RCP);
+use parent qw(Roku::RCP);
 
 our $VERSION = '0.03';
 
@@ -52,8 +52,8 @@ CPAN.  It inherits all the methods from the standard Roku::RCP module.
 
 =head2 new(host => I<host_address> [, port => I<port>] [, model => I<400 or 500>])
 
-If not given, RokuLCD assumes that the port number is 4444, and that the model is an M400.
-Be warned this will mean less than half the display being used on an M500!
+If not given, RokuLCD assumes that the port number is 4444, and will attempt to determine the model from the displaytype
+command (if that fails, it will set the model type to M400).
 
 =cut
 
@@ -65,20 +65,56 @@ sub new {
     %args = @_;
     $args{Host} = $host if $host;
 
-    return undef unless $args{Host};
+    if (! $args{Host}) { return; }
 
     $self = $class->SUPER::new( $host, Port => $args{Port} || '4444' );
 
-    return undef unless defined $self;
+    if (! defined $self)  { return; }
 
-    if ( $args{model} == 500 ) {
-        ${*$self}{display_length} = 40;
+    if ( $args{model} ) {
+	    if ( $args{model} == 500 ) {
+	        ${*$self}{display_length} = 40;
+            ${*$self}{model} = $args{model};
+	    }
+	    elsif ( $args{model} == 400 ) {
+	        ${*$self}{display_length} = 16;
+            ${*$self}{model} = $args{model};
+	    }
+	    else {
+	    	print 'WARNING: unrecognised model type, ', ${*$self}{model}, " trying display type\n";
+	    }
     }
-    else {
-        # Assume model == 400
-        ${*$self}{display_length} = 16;
+
+    if (! ${*$self}{model} ) {
+	    $self->command("displaytype");
+	    # M400 returns "16x2 LCD" - I assume M500 returns "40x2 LCD"
+	
+	    my @responses = $self->sb_response();
+	    foreach my $response (@responses) {
+	
+		    print "displaytype = '$response' ?\n";
+		    if ($response =~ /^(\d{2})x/) {
+		        ${*$self}{display_length} = $1;
+		        if (${*$self}{display_length} == 40) {
+		        	${*$self}{model} = 500;
+		        }
+		        else {
+		            ${*$self}{model} = 400;
+		        }
+		        last;
+		    }
+	    }
+	    
+	    if (! ${*$self}{model}) {
+            print "WARNING: unrecognised display type - unknown model type.  Setting to 16x2.\n";
+	        ${*$self}{display_length} = 16;
+	        ${*$self}{model} = 400;
+	    }
+	
+	    if ( ${*$self}{debug} ) {
+            print "DEBUG display length = ${*$self}{display_length}; model = ${*$self}{model} = 400\n";
+	    }
     }
-    ${*$self}{model} = $args{model};
 
     return bless $self, $class;
 }    # end new
@@ -116,34 +152,29 @@ If 1 is passed to clear, it forces the display to clear first (default 0)
 
 sub marquee {
     my ( $self, %args ) = @_;
-    return 1;
 
     # only take over if on standby
-    if ( $self->onstandby ) {
-        my $text  = $args{'text'}  || "";
-        my $clear = $args{'clear'} || 0;
-
-        # duration is a magic number - time to wait before releasing display.
-        my $duration = ( int( ( ( length($text) ) + 24 ) / 25 ) ) * 5;
-
-        if ( ${*$self}{debug} ) {
-            print "DEBUG text length = ", length($text),
-              " duration = $duration\n";
-        }
-
-        if ($clear) { $self->_clear; }
-        $self->command("sketch -c marquee -start \"$text\"");
-        sleep($duration);
-        $self->command('sketch -c quit');
-        $self->command('sketch -c exit');
-        my $rc = $self->sb_response;
-
-        return ($rc);
+    if (! $self->onstandby ) {
+        return ("Soundbridge running");
     }
-    else {
-        if ( ${*$self}{debug} ) { print "DEBUG Radio currently playing\n"; }
-        return 0;
+    my $text  = $args{'text'}  || '';
+    my $clear = $args{'clear'} || 0;
+
+    # duration is a magic number - time to wait before releasing display.
+    my $duration = ( int( ( ( length($text) ) + 24 ) / 25 ) ) * 5;
+
+    if ( ${*$self}{debug} ) {
+        print "DEBUG text length = ", length($text),
+          " duration = $duration\n";
     }
+
+    if ($clear) { $self->_clear; }
+    $self->command("sketch -c marquee -start \"$text\"");
+    sleep($duration);
+    $self->command('sketch -c quit');
+    $self->command('sketch -c exit');
+
+    return ($self->sb_response);
 }    # end marquee
 
 
@@ -158,9 +189,8 @@ sub _clear {
 sub _spacefill {
     # pad line with spaces - used to overwrite previous lines
     # WARNING! This is an internal function, and likely to change
-    my $self = shift;
-    my %args = @_;
-    my $text = $args{'text'} || "";
+    my ( $self, %args ) = @_;
+    my $text = $args{'text'} || '';
     for ( my $i = length($text) ; $i <= ${*$self}{display_length} ; $i++ ) {
         $text .= ' ';
     }
@@ -174,7 +204,7 @@ sub _text {
 #   _text(text => I<text to display> , duration => I<length of time to display> [, clear => I<0/1>], x => I<c/0-screen width>, y => I<0/1>)
     my ( $self, %args ) = @_;
 
-    my $text  = $args{'text'}  || "";
+    my $text  = $args{'text'}  || '';
     my $x     = $args{'x'}     || 0;
     my $y     = $args{'y'}     || 0;
     my $duration = $args{'duration'};
@@ -194,7 +224,7 @@ sub ticker {    # an alternative to marquee
     my ( $self, %args ) = @_;
     # only take over if on standby
     if (! $self->onstandby ) {
-        return ("Soundbridge running");
+        return ('Soundbridge running');
     }
     
     $self->command('sketch');
@@ -209,7 +239,7 @@ sub ticker {    # an alternative to marquee
 
 sub _ticker {    # the real function - also used by teletype
     my ( $self, %args ) = @_;
-    my $text  = $args{'text'}  || "";
+    my $text  = $args{'text'}  || '';
     my $pause = $args{'pause'} || 5;
     my $y     = $args{'y'}     || 0;
     my $dlength = ${*$self}{display_length};
@@ -219,7 +249,8 @@ sub _ticker {    # the real function - also used by teletype
     my $dur     = 0;
     my $spc     = 0;
 
-    for ( my $length = 1 ; $length < ( length($text) ) ; $length++ ) {
+    my $length = 0;
+    while(++$length < ( length($text) ) ) {
         $spc++;
         $tlength++ unless ( $tlength == $dlength );
         $offset++ if ( length($dtext) == $dlength );
@@ -227,7 +258,7 @@ sub _ticker {    # the real function - also used by teletype
         $spc = 0 if ( substr( $dtext, -1, 1 ) eq ' ' );
 
         if ( ( length($text) > $dlength ) && ( ++$dur == $dlength ) ) {
-            print "length > dlength && dur == dlength\n";
+            # print "length > dlength && dur == dlength\n";
             $self->_text( text => $dtext, duration => 0.25, y => $y );
             if ( ${*$self}{debug} ) {
                 print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n";
@@ -236,7 +267,7 @@ sub _ticker {    # the real function - also used by teletype
             $dur = 0 if ( $dur > $dlength );
         }
         else {
-            print "length <= dlength || dur != dlength\n";
+            # print "length <= dlength || dur != dlength\n";
             $self->_text( text => $dtext, duration => 0.25, y => $y );
             if ( ${*$self}{debug} ) {
                 print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n";
@@ -245,6 +276,7 @@ sub _ticker {    # the real function - also used by teletype
     }
     $dtext = substr( $text, -$dlength, $dlength );
     $self->_text( text => $dtext, duration => $pause, y => $y );
+    return 1;
 }    # end _ticker
 
 =head2 teletype(text => I<text to display> [, pause => I<seconds>] [, [linepause =>  I<seconds>])
@@ -259,7 +291,7 @@ length of time to pause at the end of the text.
 
 sub teletype {
     my ( $self, %args ) = @_;
-    my $text      = $args{'text'}      || ""; # default text is blank
+    my $text      = $args{'text'}      || ''; # default text is blank
     my $linepause = $args{'linepause'} || 1;  # length of time to wait in seconds before next line
     my $pause     = $args{'pause'}     || 1;  # length of additional time to wait in seconds after message
 

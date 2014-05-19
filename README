@@ -1,19 +1,22 @@
 Roku-RokuLCD
 
-A note on Tools4Roku...
-Why isn't Tools4Roku good enough for you ?
-- well it is very good, and if you have a more advanced Soundbridge, I'd
-recommend heading over to http://billiatjapan.netfirms.com/Tools4Roku/
-and downloading Juergen's script.
+This module supplies a small set of routines to display text on a Roku
+Soundbridge whilst it is not being used for radio.
+
+This was originally based on Tools4Roku's RokuUI module, but since it
+is not available on CPAN, I have revised the RokuLCD module to use the
+Roku::RCP module for inherited methods.  For more information on RokuLCD,
+the documentation is encapsulated within the module and can be accessed
+via a tool such as pod2html.
+
+If you have a more advanced Soundbridge, I'd recommend heading over to
+http://billiatjapan.netfirms.com/Tools4Roku/ and downloading Juergen's
+script.
 
 However, my M400 can't display pictures and has a very small screen.  I
 also found the RokuUI module a little clunky and wanted to create an
 easier interface to send display updates - hence the RokuLCD module.
 
-Since the RokuUI module is not available on CPAN, I have revised the
-RokuLCD module to use the Roku::RCP module for inherited methods.  For
-more information on RokuLCD, the documentation is encapsulated within
-the module and can be accessed via a tool such as pod2html.
 
 INSTALLATION
 
