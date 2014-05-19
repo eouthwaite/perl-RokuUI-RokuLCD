@@ -543,7 +543,7 @@ __END__
 
 =head1 AUTHOR
 
-Outhwaite, Ed, C<< <edstertech at googlemail.com> >>
+Outhwaite, Ed, C<< <edster at gmx.com> >>
 
 
 =head1 ACKNOWLEDGEMENTS

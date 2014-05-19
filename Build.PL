@@ -6,7 +6,7 @@ use Module::Build;
 my $builder = Module::Build->new(
     module_name         => 'Roku::RokuLCD',
     license             => 'Artistic_2_0',
-    dist_author         => q{Ed Outhwaite <ed.outhwaite@googlemail.com>},
+    dist_author         => q{Ed Outhwaite <edster@gmx.com>},
     dist_version_from   => 'lib/Roku/RokuLCD.pm',
     release_status      => 'stable',
     configure_requires => {
