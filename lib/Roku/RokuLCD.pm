@@ -27,9 +27,9 @@ Roku::RokuLCD - M400 & M500 Display Functions made more accessible than via the 
 
 
  use Roku::RokuLCD;
- my $display = Roku::RokuLCD->new(host => $rokuIP, port => 4444, model => 400);
- $display->open || die("Could not connect to Roku Soundbridge");
-
+ my $display = Roku::RokuLCD->new($rokuIP);
+ if (! display) { die("Could not connect to Roku Soundbridge"); }
+ 
  my($rv) = $display->marquee(text => "This allows easy access to the marquee function - timings for M400 only");
 
  $display->ticker(text => "An alternative to the marquee function that can cope with large quantities of text", pause => 5);
@@ -40,13 +40,16 @@ Roku::RokuLCD - M400 & M500 Display Functions made more accessible than via the 
 
  $display->teletype(text => "@slurp_file", pause => 2, linepause => 1);
 
- $display->close;
+ $display->Quit;
 
 =head1 DESCRIPTION
 
 Roku::RokuLCD was written because the RokuUI module appeared a bit too high level, so I put together some simplified display
-routines into a single easy-to-use object.  It has now been moved to using the Roku::RCP module which is easily available from
-CPAN.  It inherits all the methods from the standard Roku::RCP module.
+routines into a single easy-to-use object.
+
+It has now been moved to using the Roku::RCP module which is easily available from CPAN.
+
+It inherits all the methods from the standard Roku::RCP module.
 
 =head1 METHODS
 
