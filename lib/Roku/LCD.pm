@@ -1,33 +1,43 @@
-package Roku::RokuLCD;
+package Roku::LCD;
 
 use v5.10.1;
 use strict;
 use warnings;
 use Time::HiRes qw(sleep);
+use Readonly;
+
+# Constants
+Readonly::Scalar our $EMPTY       => q{};
+Readonly::Scalar our $SPACE       => q{ };
+Readonly::Scalar our $M400        => 400;  # Model type
+Readonly::Scalar our $M500        => 500;  # Model type
+Readonly::Scalar our $M400WIDTH   => 16;   # M400 screen width
+Readonly::Scalar our $M500WIDTH   => 40;   # M500 screen width
+Readonly::Scalar our $LETTERPAUSE => 0.25; # Time to pause between printing characters
 
 require Roku::RCP;
 
 use parent qw(Roku::RCP);
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 =head1 NAME
 
-Roku::RokuLCD - M400 & M500 Display Functions made more accessible than via the Roku::RCP module
+Roku::LCD - M400 & M500 Display Functions made more accessible than via the Roku::RCP module
 
 =head1 VERSION
 
 =over
 
-=item Version 0.03  March 24, 2014 Proper CPAN packaging and moved to using Roku::RCP as a base rather than the non-CPAN RokuUI module
+=item Version 0.04  May 24, 2014 - moved namespace ; refactored main methods 
 
 =back
 
 =head1 SYNOPSIS
 
 
- use Roku::RokuLCD;
- my $display = Roku::RokuLCD->new($rokuIP);
+ use Roku::LCD;
+ my $display = Roku::LCD->new($rokuIP);
  if (! display) { die("Could not connect to Roku Soundbridge"); }
  
  my($rv) = $display->marquee(text => "This allows easy access to the marquee function - timings for M400 only");
@@ -44,7 +54,7 @@ Roku::RokuLCD - M400 & M500 Display Functions made more accessible than via the 
 
 =head1 DESCRIPTION
 
-Roku::RokuLCD was written because the RokuUI module appeared a bit too high level, so I put together some simplified display
+Roku::LCD was written because the RokuUI module appeared a bit too high level, so I put together some simplified display
 routines into a single easy-to-use object.
 
 It has now been moved to using the Roku::RCP module which is easily available from CPAN.
@@ -55,8 +65,8 @@ It inherits all the methods from the standard Roku::RCP module.
 
 =head2 new(host => I<host_address> [, port => I<port>] [, model => I<400 or 500>])
 
-If not given, RokuLCD assumes that the port number is 4444, and will attempt to determine the model from the displaytype
-command (if that fails, it will set the model type to M400).
+If not given, the port number is assumed to be 4444, and the model will be determined from the displaytype
+command (if that fails, the model type will be set to M400).
 
 =cut
 
@@ -75,16 +85,16 @@ sub new {
     if (! defined $self)  { return; }
 
     if ( $args{model} ) {
-	    if ( $args{model} == 500 ) {
-	        ${*$self}{display_length} = 40;
+	    if ( $args{model} == $M500 ) {
+	        ${*$self}{display_length} = $M500WIDTH ;
             ${*$self}{model} = $args{model};
 	    }
-	    elsif ( $args{model} == 400 ) {
-	        ${*$self}{display_length} = 16;
+	    elsif ( $args{model} == $M400 ) {
+	        ${*$self}{display_length} = $M400WIDTH ;
             ${*$self}{model} = $args{model};
 	    }
 	    else {
-	    	print 'WARNING: unrecognised model type, ', ${*$self}{model}, " trying display type\n";
+	    	print 'WARNING: unrecognised model type, ', $args{model}, " trying display type\n";
 	    }
     }
 
@@ -98,11 +108,11 @@ sub new {
 		    print "displaytype = '$response' ?\n";
 		    if ($response =~ /^(\d{2})x/) {
 		        ${*$self}{display_length} = $1;
-		        if (${*$self}{display_length} == 40) {
-		        	${*$self}{model} = 500;
+		        if (${*$self}{display_length} == $M500WIDTH) {
+		        	${*$self}{model} = $M500 ;
 		        }
 		        else {
-		            ${*$self}{model} = 400;
+		            ${*$self}{model} = $M400 ;
 		        }
 		        last;
 		    }
@@ -110,8 +120,8 @@ sub new {
 	    
 	    if (! ${*$self}{model}) {
             print "WARNING: unrecognised display type - unknown model type.  Setting to 16x2.\n";
-	        ${*$self}{display_length} = 16;
-	        ${*$self}{model} = 400;
+	        ${*$self}{display_length} = $M400WIDTH ;
+	        ${*$self}{model} = $M400;
 	    }
 	
 	    if ( ${*$self}{debug} ) {
@@ -138,7 +148,7 @@ sub marquee {
     if (! $self->onstandby ) {
         return ("Soundbridge running");
     }
-    my $text  = $args{'text'}  || '';
+    my $text  = $args{'text'}  || $EMPTY;
     my $clear = $args{'clear'} || 0;
 
     # duration is a magic number - time to wait before releasing display.
@@ -171,21 +181,28 @@ sub _spacefill {
     # pad line with spaces - used to overwrite previous lines
     # WARNING! This is an internal function, and likely to change
     my ( $self, %args ) = @_;
-    my $text = $args{'text'} || '';
-    for ( my $i = length($text) ; $i <= ${*$self}{display_length} ; $i++ ) {
-        $text .= ' ';
+    my $text = $args{'text'} || $EMPTY;
+    my $tl   = length($text);
+
+    # how many spaces do we need ?
+    my $spc = ${*$self}{display_length} - $tl;
+    if ($spc < 1) {
+    	# no padding required
+    	return $text;
     }
-    return $text;
+    else {
+        my $pattern = "%${tl}s%${spc}s";
+        return sprintf $pattern, $text, $SPACE;
+    }
 }    # end _spacefill
 
 sub _text {
-
 # internal function allowing easy access to the sketch "text" command
 # usage:
 #   _text(text => I<text to display> , duration => I<length of time to display> [, clear => I<0/1>], x => I<c/0-screen width>, y => I<0/1>)
     my ( $self, %args ) = @_;
 
-    my $text  = $args{'text'}  || '';
+    my $text  = $args{'text'}  || $SPACE;
     my $x     = $args{'x'}     || 0;
     my $y     = $args{'y'}     || 0;
     my $duration = $args{'duration'};
@@ -220,27 +237,35 @@ sub ticker {    # an alternative to marquee
 
 sub _ticker {    # the real function - also used by teletype
     my ( $self, %args ) = @_;
-    my $text  = $args{'text'}  || '';
+    my $text  = $args{'text'}  || $EMPTY;
     my $pause = $args{'pause'} || 5;
     my $y     = $args{'y'}     || 0;
     my $dlength = ${*$self}{display_length};
-    my $offset  = 0;
-    my $tlength = 0;
-    my $dtext   = 0;
+    my $offset  = 0;   # offset for taking a substring
+    my $dtext   = '0'; # currently displayed text
+    my $tlength = 0;   # length of currently displayed text
     my $dur     = 0;
     my $spc     = 0;
 
     my $length = 0;
     while(++$length < ( length($text) ) ) {
         $spc++;
-        $tlength++ unless ( $tlength == $dlength );
-        $offset++ if ( length($dtext) == $dlength );
+        if ( $tlength != $dlength ) {
+        	# current text length != display width
+        	$tlength++;
+        }
+
+        if ( length($dtext) == $dlength ) { 
+        	# increase the offset if the displayed text is the same length as the screen width
+        	$offset++;
+        }
+
         $dtext = substr( $text, $offset, $tlength );
         $spc = 0 if ( substr( $dtext, -1, 1 ) eq ' ' );
 
         if ( ( length($text) > $dlength ) && ( ++$dur == $dlength ) ) {
             # print "length > dlength && dur == dlength\n";
-            $self->_text( text => $dtext, duration => 0.25, y => $y );
+            $self->_text( text => $dtext, duration => $LETTERPAUSE, y => $y );
             if ( ${*$self}{debug} ) {
                 print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n";
             }
@@ -249,7 +274,7 @@ sub _ticker {    # the real function - also used by teletype
         }
         else {
             # print "length <= dlength || dur != dlength\n";
-            $self->_text( text => $dtext, duration => 0.25, y => $y );
+            $self->_text( text => $dtext, duration => $LETTERPAUSE, y => $y );
             if ( ${*$self}{debug} ) {
                 print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n";
             }
@@ -272,9 +297,9 @@ length of time to pause at the end of the text.
 
 sub teletype {
     my ( $self, %args ) = @_;
-    my $text      = $args{'text'}      || ''; # default text is blank
-    my $linepause = $args{'linepause'} || 1;  # length of time to wait in seconds before next line
-    my $pause     = $args{'pause'}     || 1;  # length of additional time to wait in seconds after message
+    my $text      = $args{'text'}      || $EMPTY; # default text is blank
+    my $linepause = $args{'linepause'} || 1;      # length of time to wait in seconds before next line
+    my $pause     = $args{'pause'}     || 1;      # length of additional time to wait in seconds after message
 
     # only take over if on standby
     if (! $self->onstandby ) {
@@ -331,7 +356,7 @@ sub teletype {
                     $rc = $self->_ticker(
                         text    => $y0_string,
                         y       => 0,
-                        pause   => 0.25
+                        pause   => $LETTERPAUSE
                     );
                     $y           = 1;
                     $y1_string   = $2;
@@ -353,7 +378,7 @@ sub teletype {
                     $rc = $self->_ticker(
                         text    => $y1_string,
                         y       => 1,
-                        pause   => 0.25
+                        pause   => $LETTERPAUSE
                     );
                     $y0_string = substr(
                         $y1_string,
@@ -369,7 +394,7 @@ sub teletype {
                     $rc = $self->_ticker(
                         text    => $y0_string,
                         y       => 0,
-                        pause   => 0.25
+                        pause   => $LETTERPAUSE
                     );
                     $y           = 1;
                     $y1_string   = $string[$ary_inx];
@@ -389,7 +414,7 @@ sub teletype {
                     $rc = $self->_ticker(
                         text    => $y1_string,
                         y       => 1,
-                        pause   => 0.25
+                        pause   => $LETTERPAUSE
                     );
                     $y0_string = substr(
                         $y1_string,
@@ -420,7 +445,7 @@ sub teletype {
                 );
             }
             else {
-                for ( my $i = length($y0_string) ; $i <= 16 ; $i++ ) {
+                for ( my $i = length($y0_string) ; $i <= $dlength ; $i++ ) {
                     $y0_string .= ' ';
                 }
                 $rc = $self->_text(
@@ -559,44 +584,7 @@ http://www.rodlord.com/pages/hhgg.htm
 
 Copyright 2014 Outhwaite, Ed.
 
-This program is free software; you can redistribute it and/or modify it
-under the terms of the the Artistic License (2.0). You may obtain a
-copy of the full license at:
-
-L<http://www.perlfoundation.org/artistic_license_2_0>
-
-Any use, modification, and distribution of the Standard or Modified
-Versions is governed by this Artistic License. By using, modifying or
-distributing the Package, you accept this license. Do not use, modify,
-or distribute the Package, if you do not accept this license.
-
-If your Modified Version has been derived from a Modified Version made
-by someone other than you, you are nevertheless required to ensure that
-your Modified Version complies with the requirements of this license.
-
-This license does not grant you the right to use any trademark, service
-mark, tradename, or logo of the Copyright Holder.
-
-This license includes the non-exclusive, worldwide, free-of-charge
-patent license to make, have made, use, offer to sell, sell, import and
-otherwise transfer the Package with respect to any patent claims
-licensable by the Copyright Holder that are necessarily infringed by the
-Package. If you institute patent litigation (including a cross-claim or
-counterclaim) against any party alleging that the Package constitutes
-direct or contributory patent infringement, then this Artistic License
-to you shall terminate on the date that such litigation is filed.
-
-Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
-AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
-THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
-YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR
-CONTRIBUTOR WILL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, OR
-CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THE PACKAGE,
-EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-RokuUI is Copyright Michael Polymenakos 2007 mpoly@panix.com
-
+This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =cut
 

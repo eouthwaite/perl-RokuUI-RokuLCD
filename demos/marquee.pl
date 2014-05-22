@@ -4,14 +4,14 @@ use strict;
 use warnings FATAL => 'all';
 use Test::More;
 
-use Roku::RokuLCD;
+use Roku::LCD;
 
 plan tests => 2;
 
 sub connect_to_soundbridge {
     my ($roku) = @_;
 
-    my $rcp = Roku::RokuLCD->new($roku, debug => 1);
+    my $rcp = Roku::LCD->new($roku, debug => 1);
 	if ($rcp) {
 	    my $msg = "Success! Connected to $roku";
 	    my $rv = $rcp->marquee(text => $msg);
@@ -39,7 +39,7 @@ sub test_ticker {
 sub test_teletype {
     my ($rcp) = @_;
 
-    my($rv) = $rcp->ticker(text => "Ticker is an alternative to the marquee function - timings for M400 only");
+    my($rv) = $rcp->teletype(text => "Teletype is an alternative to the marquee function - timings for M400 only");
 }
 
 
