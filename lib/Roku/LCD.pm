@@ -74,9 +74,9 @@ sub new {
     my $self = shift;
     my $class = ref($self) || $self;
     my ( $host, %args );
-    $host = shift if ( scalar(@_) % 2 );
+    if ( scalar(@_) % 2 ) { $host = shift; }
     %args = @_;
-    $args{Host} = $host if $host;
+    if ($host) { $args{Host} = $host; }
 
     if (! $args{Host}) { return; }
 
@@ -99,24 +99,7 @@ sub new {
     }
 
     if (! ${*$self}{model} ) {
-	    $self->command("displaytype");
-	    # M400 returns "16x2 LCD" - I assume M500 returns "40x2 LCD"
-	
-	    my @responses = $self->sb_response();
-	    foreach my $response (@responses) {
-	
-		    print "displaytype = '$response' ?\n";
-		    if ($response =~ /^(\d{2})x/) {
-		        ${*$self}{display_length} = $1;
-		        if (${*$self}{display_length} == $M500WIDTH) {
-		        	${*$self}{model} = $M500 ;
-		        }
-		        else {
-		            ${*$self}{model} = $M400 ;
-		        }
-		        last;
-		    }
-	    }
+    	my $result = $self->_determine_model;
 	    
 	    if (! ${*$self}{model}) {
             print "WARNING: unrecognised display type - unknown model type.  Setting to 16x2.\n";
@@ -169,6 +152,18 @@ sub marquee {
 }    # end marquee
 
 
+sub _blank_line {
+    # clears a single line
+    my ( $self, $line ) = @_;
+    my $rc = $self->_text(
+        text     => $self->_spacefill(text => $SPACE),
+        duration => 0,
+        y        => $line
+    );
+    return $rc;
+}   # end _blank_line
+
+
 sub _clear {
 	# clear the display
     my $self = shift;
@@ -176,6 +171,35 @@ sub _clear {
     my $rc = $self->sb_response;
     return ($rc);
 }
+
+sub _determine_model {
+    # determine the soundbridge model from the display size
+    # M400 returns "16x2 LCD" - I assume M500 returns "40x2 LCD"
+    my $self = shift;
+    $self->command("displaytype");
+    
+    my @responses = $self->sb_response();
+    foreach my $response (@responses) {
+    
+        if ( ${*$self}{debug} ) {
+            print "DEBUG display type returned '$response'\n";
+        }
+        if ($response =~ /^(\d{2})x/) {
+            ${*$self}{display_length} = $1;
+            if (${*$self}{display_length} == $M500WIDTH) {
+                ${*$self}{model} = $M500 ;
+                return "model $M500";
+            }
+            else { # assume it's 16
+                ${*$self}{model} = $M400 ;
+                return "model $M400";
+            }
+            last;
+        }
+    }
+    return; # nothing appeared - return empty handed
+}   # end _determine_model
+
 
 sub _spacefill {
     # pad line with spaces - used to overwrite previous lines
@@ -211,6 +235,109 @@ sub _text {
     sleep($duration);
     return 1;
 }    # end _text
+
+
+sub _print_current_line {
+    # An internal function for the teletype method
+    # clears, then prints the current line
+    my ( $self, $text, $y ) = @_;
+    my $rc = $self->_blank_line($y);
+    $rc = $self->_ticker(
+        text    => $text,
+        y       => $y,
+        pause   => $LETTERPAUSE
+    );
+    return $rc;
+}   # end _print_current_line
+
+
+sub _print_last_line {
+    # An internal function for the teletype method
+    # prints the last line on the top line
+    my ( $self, $text ) = @_;
+    my $rc = $self->_text(
+        text     => $text,
+        duration => 0,
+        y        => 0
+    );
+    return $rc;
+}   # end _print_last_line
+
+
+sub _ttparagraph {
+    # An internal method which processes individual paragraphs for the teletype method
+    my ( $self, $text, $last_line_ref, $y_ref ) = @_;
+    my $dlength   = ${*$self}{display_length}; # width of display
+    my $current_line;
+    my $current_line_length = 0;
+    my $rc;
+
+    # is the paragraph small enough to be printed on one line?
+    if (length($text) <= $dlength) {
+        if (${$last_line_ref}) {
+            $rc = $self->_print_last_line(${$last_line_ref});
+        }
+        $rc = $self->_print_current_line($text, ${$y_ref});
+        # start next line
+        ${$y_ref} = 1;
+        ${$last_line_ref} = $self->_spacefill(text => $text);
+    }
+    else {
+        # process the paragraph - break it into words (split on space)
+        my @string = split(/ /, $text);
+
+        # work through each word in the array (ary_inx holds the current word's position)
+        for ( my $ary_inx = 0 ; $ary_inx <= $#string ; $ary_inx++ ) {
+
+            if ( ( length( $string[$ary_inx] ) + $current_line_length ) < $dlength ) {
+                # if the word will fit on the current line
+                # (note less than as a space needs to be accomodated too)
+                $current_line .= $SPACE if ($current_line);
+                $current_line .= $string[$ary_inx];
+                $current_line_length = length($current_line);
+            }
+            # elsif the word will not fit on the current line but contains a non-word character - split on that (add one to the length because there's a space)
+            elsif ( ( $string[$ary_inx] =~ /^(\S+\W)(\S+)$/ )
+                && ( ( length($1) + $current_line_length + 1 ) < $dlength ) )
+            {
+                if ($current_line) { $current_line .= $SPACE; }
+                $current_line .= $1;
+                # print the line
+                if (${$last_line_ref}) {
+                    $rc = $self->_print_last_line(${$last_line_ref});
+                }
+                $rc = $self->_print_current_line($current_line, ${$y_ref});
+                # start next line
+                ${$y_ref} = 1;
+                ${$last_line_ref} = $self->_spacefill(text => $current_line);
+                $current_line = $2;
+                $current_line_length  = length($current_line);
+            }
+            else {
+                # too big for line, so print the line
+                if (${$last_line_ref}) {
+                    $rc = $self->_print_last_line(${$last_line_ref});
+                }
+                $rc = $self->_print_current_line($current_line, ${$y_ref});
+                # start next line
+                ${$y_ref} = 1;
+                ${$last_line_ref} = $self->_spacefill(text => $current_line);
+                $current_line = $string[$ary_inx];;
+                $current_line_length  = length($current_line);
+            }
+        } # end for loop
+        # we've run out of words, but we haven't printed the line yet!
+        if (${$last_line_ref}) {
+            $rc = $self->_print_last_line(${$last_line_ref});
+        }
+        $rc = $self->_print_current_line($current_line, ${$y_ref});
+        # fill last line for next paragraph call
+        ${$y_ref} = 1;
+        ${$last_line_ref} = $self->_spacefill(text => $current_line);
+    } # end paragraph processing
+    return $rc;
+} # end _ttparagraph
+
 
 =head2 ticker(text => I<text to display> [, y => I<0/1>] [, pause => I<seconds>])
 
@@ -261,7 +388,7 @@ sub _ticker {    # the real function - also used by teletype
         }
 
         $dtext = substr( $text, $offset, $tlength );
-        $spc = 0 if ( substr( $dtext, -1, 1 ) eq ' ' );
+        if ( substr( $dtext, -1, 1 ) eq $SPACE ) { $spc = 0; }
 
         if ( ( length($text) > $dlength ) && ( ++$dur == $dlength ) ) {
             # print "length > dlength && dur == dlength\n";
@@ -270,7 +397,7 @@ sub _ticker {    # the real function - also used by teletype
                 print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n";
             }
             $dur = $spc;
-            $dur = 0 if ( $dur > $dlength );
+            if ( $dur > $dlength ) { $dur = 0; }
         }
         else {
             # print "length <= dlength || dur != dlength\n";
@@ -316,190 +443,18 @@ sub teletype {
     my $dlength     = ${*$self}{display_length}; # width of display
     my $line_length = 0;                         # current length of line
     my $y           = 0;                         # start at the top
-    my $y0_string   = undef;                     # used to build the top string
-    my $y1_string   = undef;                     # used to build the bottom string
+    my $last_string = undef;                     # last string printed
 
     my (@paras) = split( /\n/, $text );  # break the text into paragraphs
-    foreach (@paras) {
-        @string = split(/ /);            # break the paragraph into words (split on space)
-
-        # work through each word in the array (ary_inx holds the current word's position)
-        for ( my $ary_inx = 0 ; $ary_inx <= $#string ; $ary_inx++ ) {
-
-            if ( ( length( $string[$ary_inx] ) + $line_length ) <
-                $dlength )
-                # if the word will fit on the current line
-                # (note less than as a space needs to be accomodated too)
-            {
-                if ( $y == 0 ) {
-                    $y0_string .= ' ' if ($y0_string);
-                    $y0_string .= $string[$ary_inx];
-                    $line_length += ( length( $string[$ary_inx] ) );
-                    $line_length++;
-                }
-                else    # we'll assume it's line 1
-                {
-                    $y1_string .= ' ' if ($y1_string);
-                    $y1_string .= $string[$ary_inx];
-                    $line_length += ( length( $string[$ary_inx] ) );
-                    $line_length++;
-                }
-            }
-            # elsif the word will not fit on the current line but contains a non-word character - split on that (add one to the length because there's a space)
-            elsif ( ( $string[$ary_inx] =~ /^(\S+\W)(\S+)$/ )
-                && ( ( length($1) + $line_length + 1 ) <
-                    $dlength ) )
-            {
-                if ( $y == 0 ) {
-                    $y0_string .= ' ' if ($y0_string);
-                    $y0_string .= $1;
-                    $rc = $self->_ticker(
-                        text    => $y0_string,
-                        y       => 0,
-                        pause   => $LETTERPAUSE
-                    );
-                    $y           = 1;
-                    $y1_string   = $2;
-                    $line_length = length($2);
-                }
-                else {
-                    $y1_string .= ' ' if ($y1_string);
-                    $y1_string .= $1;
-                    $rc = $self->_text(
-                        text     => $y0_string,
-                        duration => 0,
-                        y        => 0
-                    );
-                    $rc = $self->_text(
-                        text     => $self->_spacefill( text => ' ' ),
-                        duration => 0,
-                        y        => 1
-                    );
-                    $rc = $self->_ticker(
-                        text    => $y1_string,
-                        y       => 1,
-                        pause   => $LETTERPAUSE
-                    );
-                    $y0_string = substr(
-                        $y1_string,
-                        ( -$dlength ),
-                        $dlength
-                    );    # only display what was on 2nd line
-                    $y1_string   = $2;
-                    $line_length = length($2);
-                }
-            }
-            else {        # too big for line
-                if ( $y == 0 ) {
-                    $rc = $self->_ticker(
-                        text    => $y0_string,
-                        y       => 0,
-                        pause   => $LETTERPAUSE
-                    );
-                    $y           = 1;
-                    $y1_string   = $string[$ary_inx];
-                    $line_length = ( length( $string[$ary_inx] ) );
-                }
-                else {
-                    $rc = $self->_text(
-                        text     => $self->_spacefill( text => $y0_string ),
-                        duration => 0,
-                        y        => 0
-                    );
-                    $rc = $self->_text(
-                        text     => $self->_spacefill( text => ' ' ),
-                        duration => 0,
-                        y        => 1
-                    );
-                    $rc = $self->_ticker(
-                        text    => $y1_string,
-                        y       => 1,
-                        pause   => $LETTERPAUSE
-                    );
-                    $y0_string = substr(
-                        $y1_string,
-                        ( -$dlength ),
-                        $dlength
-                    );    # only display what was on 2nd line
-                    $y1_string   = $string[$ary_inx];
-                    $line_length = ( length( $string[$ary_inx] ) );
-                }
-            }
-        }
-        unless ( $rc =~ /^CK/ ) {
-            if ($y1_string) {
-                $rc = $self->_text(
-                    text     => $self->_spacefill( text => $y0_string ),
-                    duration => 0,
-                    y        => 0
-                );
-                $rc = $self->_text(
-                    text     => $self->_spacefill( text => ' ' ),
-                    duration => 0,
-                    y        => 1
-                );
-                $rc = $self->_ticker(
-                    text     => $y1_string,
-                    pause    => $linepause,
-                    y        => 1
-                );
-            }
-            else {
-                for ( my $i = length($y0_string) ; $i <= $dlength ; $i++ ) {
-                    $y0_string .= ' ';
-                }
-                $rc = $self->_text(
-                    text     => $y0_string,
-                    duration => 0,
-                    y        => 0
-                );
-                $rc = $self->_text(
-                    text     => $self->_spacefill( text => ' ' ),
-                    duration => $linepause,
-                    y        => 1
-                );
-            }
-        }
-        $y         = 1;
-        $y0_string = substr(
-            $y1_string,
-            ( -$dlength ),
-            $dlength
-        );    # only display what was on 2nd line
-        $y1_string   = undef;
-        $line_length = 0;
+    foreach my $paragraph (@paras) {
+    	$self->_ttparagraph($paragraph, \$last_string, \$y)
     }
-    unless ( $rc =~ /^CK/ ) {
-        if ($y1_string) {
-            $rc = $self->_text(
-                text     => $y0_string,
-                duration => 0,
-                y        => 0
-            );
-            $rc = $self->_text(
-                text     => $self->_spacefill( text => ' ' ),
-                duration => 0,
-                y        => 1
-            );
-            $rc = $self->_text(
-                text     => $y1_string,
-                duration => $linepause,
-                y        => 1
-            );
-        }
-        else {
-            $rc = $self->_text(
-                text     => $self->_spacefill( text => $y0_string ),
-                duration => 0,
-                y        => 0
-            );
-            $rc = $self->_text(
-                text     => $self->_spacefill( text => ' ' ),
-                duration => $linepause,
-                y        => 1
-            );
-        }
-    }
+    $rc = $self->_print_last_line($last_string);
+    $rc = $self->_text(
+        text     => $self->_spacefill( text => $SPACE ),
+        duration => 0,
+        y        => 1
+    );
     sleep($pause);
     $self->command('quit');
     $rc = $self->sb_response;

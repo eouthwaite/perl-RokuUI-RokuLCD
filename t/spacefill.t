@@ -30,7 +30,7 @@ sub validate_roku_address {
 sub connect_to_soundbridge {
     my ($roku) = @_;
 
-    ok ( my $rcp = Roku::LCD->new($roku, debug => 1, model => 1600), "Connect to Soundbridge '$roku'");
+    ok ( my $rcp = Roku::LCD->new($roku, debug => 1), "Connect to Soundbridge '$roku'");
     if ($rcp) {
         return($rcp);
     }
@@ -46,17 +46,32 @@ SKIP: {
     ok( defined $rokuIP, 'Able to take Roku address from environment variable');
 }
 
+#SKIP: {
+#    skip 'No Roku Soundbridge to test against', 1
+#        unless ($rokuIP);
+#
+#    diag( "Testing against Roku Address '$rokuIP'" );
+#    $connection = connect_to_soundbridge($rokuIP, model => 400);
+#}
+#
+#SKIP: {
+#    skip 'Not connected to a Roku Soundbridge', 1
+#        unless ($connection);
+#    is( length ( $connection->_spacefill(text => 'A')) , 16, 'Spacefill creates the right sized text for M400' ); 
+#    $connection->Quit;
+#}
+
 SKIP: {
     skip 'No Roku Soundbridge to test against', 1
         unless ($rokuIP);
 
     diag( "Testing against Roku Address '$rokuIP'" );
-    $connection = connect_to_soundbridge($rokuIP);
+    $connection = connect_to_soundbridge($rokuIP, model => 500);
 }
 
 SKIP: {
     skip 'Not connected to a Roku Soundbridge', 1
         unless ($connection);
-    is( length ( $connection->_spacefill(text => 'A')) , 16, 'Spacefill creates the right sized text' ); 
+    is( length ( $connection->_spacefill(text => 'A')) , 40, 'Spacefill creates the right sized text for M500' ); 
     $connection->Quit;
 }
