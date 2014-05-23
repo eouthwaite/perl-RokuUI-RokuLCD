@@ -94,22 +94,19 @@ sub new {
             ${*$self}{model} = $args{model};
 	    }
 	    else {
-	    	print 'WARNING: unrecognised model type, ', $args{model}, " trying display type\n";
+            die 'Unrecognised model type, ', $args{model}, "\n";
 	    }
     }
-
-    if (! ${*$self}{model} ) {
+    else {
     	my $result = $self->_determine_model;
 	    
 	    if (! ${*$self}{model}) {
-            print "WARNING: unrecognised display type - unknown model type.  Setting to 16x2.\n";
-	        ${*$self}{display_length} = $M400WIDTH ;
-	        ${*$self}{model} = $M400;
+            die "Unrecognised display type - unknown model type.  Try setting manually.\n";
 	    }
-	
-	    if ( ${*$self}{debug} ) {
-            print "DEBUG display length = ${*$self}{display_length}; model = ${*$self}{model} = 400\n";
-	    }
+    }
+
+    if ( ${*$self}{debug} ) {
+        print "DEBUG display length = ${*$self}{display_length}; model = M${*$self}{model}\n";
     }
 
     return bless $self, $class;
@@ -540,6 +537,10 @@ http://www.rodlord.com/pages/hhgg.htm
 Copyright 2014 Outhwaite, Ed.
 
 This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
+
+=head1 DISCLAIMER OF WARRANTIES
+
+THIS PACKAGE IS PROVIDED "AS IS" AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
 
 =cut
 

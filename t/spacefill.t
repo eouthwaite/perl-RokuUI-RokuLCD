@@ -6,7 +6,7 @@ use Test::More;
 
 use Roku::LCD;
 
-plan tests => 2;
+plan tests => 6;
 
 sub validate_roku_address {
     my ($roku_address) = @_;
@@ -28,9 +28,9 @@ sub validate_roku_address {
 
 
 sub connect_to_soundbridge {
-    my ($roku) = @_;
+    my ($roku, $model) = @_;
 
-    ok ( my $rcp = Roku::LCD->new($roku, debug => 1), "Connect to Soundbridge '$roku'");
+    ok ( my $rcp = Roku::LCD->new($roku, model => $model, debug => 1), "Connect to Soundbridge '$roku'");
     if ($rcp) {
         return($rcp);
     }
@@ -46,27 +46,27 @@ SKIP: {
     ok( defined $rokuIP, 'Able to take Roku address from environment variable');
 }
 
-#SKIP: {
-#    skip 'No Roku Soundbridge to test against', 1
-#        unless ($rokuIP);
-#
-#    diag( "Testing against Roku Address '$rokuIP'" );
-#    $connection = connect_to_soundbridge($rokuIP, model => 400);
-#}
-#
-#SKIP: {
-#    skip 'Not connected to a Roku Soundbridge', 1
-#        unless ($connection);
-#    is( length ( $connection->_spacefill(text => 'A')) , 16, 'Spacefill creates the right sized text for M400' ); 
-#    $connection->Quit;
-#}
+SKIP: {
+    skip 'No Roku Soundbridge to test against', 1
+        unless ($rokuIP);
+
+    diag( "Testing M400 against Roku Address '$rokuIP'" );
+    $connection = connect_to_soundbridge($rokuIP, 400);
+}
+
+SKIP: {
+    skip 'Not connected to a Roku Soundbridge', 1
+        unless ($connection);
+    is( length ( $connection->_spacefill(text => 'A')) , 16, 'Spacefill creates the right sized text for M400' ); 
+    $connection->Quit;
+}
 
 SKIP: {
     skip 'No Roku Soundbridge to test against', 1
         unless ($rokuIP);
 
-    diag( "Testing against Roku Address '$rokuIP'" );
-    $connection = connect_to_soundbridge($rokuIP, model => 500);
+    diag( "Testing M500 against Roku Address '$rokuIP'" );
+    $connection = connect_to_soundbridge($rokuIP, 500);
 }
 
 SKIP: {
@@ -75,3 +75,15 @@ SKIP: {
     is( length ( $connection->_spacefill(text => 'A')) , 40, 'Spacefill creates the right sized text for M500' ); 
     $connection->Quit;
 }
+
+SKIP: {
+    skip 'No Roku Soundbridge to test against', 1
+        unless ($rokuIP);
+
+    diag( "Testing M600 against Roku Address '$rokuIP'" );
+    eval { $connection = Roku::LCD->new($rokuIP, model => 600, debug => 1) } or my $response = $@;
+    like($response, qr/Unrecognised model type/, "Connect to unknown Soundbridge model M600 fails");
+
+}
+
+
