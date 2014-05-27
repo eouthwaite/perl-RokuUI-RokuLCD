@@ -2,15 +2,16 @@
 use ExtUtils::MakeMaker;
 WriteMakefile
 (
-  'NAME' => 'Roku::LCD',
-  'EXE_FILES' => [],
+  'INSTALLDIRS' => 'site',
+  'VERSION_FROM' => 'lib/Roku/LCD.pm',
   'PL_FILES' => {},
   'PREREQ_PM' => {
+                   'Readonly' => 0,
                    'Time::HiRes' => 0,
-                   'Roku::RCP' => 0,
-                   'Test::More' => 0
+                   'Test::More' => 0,
+                   'Roku::RCP' => 0
                  },
-  'INSTALLDIRS' => 'site',
-  'VERSION_FROM' => 'lib/Roku/LCD.pm'
+  'NAME' => 'Roku::LCD',
+  'EXE_FILES' => []
 )
 ;

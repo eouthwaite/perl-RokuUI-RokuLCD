@@ -79,6 +79,11 @@ sub new {
     if ($host) { $args{Host} = $host; }
 
     if (! $args{Host}) { return; }
+    
+    # Test model type before attempting to connect
+    if ( ( $args{model} != $M500 ) && ( $args{model} != $M400 ) ) {
+        die 'Unrecognised model type, ', $args{model}, "\n";
+    }
 
     $self = $class->SUPER::new( $host, Port => $args{Port} || '4444' );
 
@@ -92,9 +97,6 @@ sub new {
 	    elsif ( $args{model} == $M400 ) {
 	        ${*$self}{display_length} = $M400WIDTH ;
             ${*$self}{model} = $args{model};
-	    }
-	    else {
-            die 'Unrecognised model type, ', $args{model}, "\n";
 	    }
     }
     else {
