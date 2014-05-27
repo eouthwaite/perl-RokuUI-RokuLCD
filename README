@@ -36,21 +36,21 @@ SUPPORT AND DOCUMENTATION
 After installing, you can find documentation for this module with the
 perldoc command.
 
-    perldoc Roku::RokuLCD
+    perldoc Roku::LCD
 
 You can also look for information at:
 
     RT, CPAN's request tracker (report bugs here)
-        http://rt.cpan.org/NoAuth/Bugs.html?Dist=RokuUI-RokuLCD
+        http://rt.cpan.org/NoAuth/Bugs.html?Dist=Roku-LCD
 
     AnnoCPAN, Annotated CPAN documentation
-        http://annocpan.org/dist/RokuUI-RokuLCD
+        http://annocpan.org/dist/Roku-LCD
 
     CPAN Ratings
-        http://cpanratings.perl.org/d/RokuUI-RokuLCD
+        http://cpanratings.perl.org/d/Roku-LCD
 
     Search CPAN
-        http://search.cpan.org/dist/RokuUI-RokuLCD/
+        http://search.cpan.org/dist/Roku-LCD/
 
 
 LICENSE AND COPYRIGHT
