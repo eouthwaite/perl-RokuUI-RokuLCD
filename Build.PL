@@ -19,6 +19,7 @@ my $builder = Module::Build->new(
         'Roku::RCP'   => 0,
         'Time::HiRes' => 0,
         'Readonly'    => 0,
+        'Carp'        => 0,
     },
     add_to_cleanup     => [ 'Roku-RokuLCD-*' ],
     create_makefile_pl => 'traditional',

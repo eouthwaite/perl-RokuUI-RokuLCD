@@ -31,7 +31,7 @@ sub validate_roku_address {
 sub connect_to_soundbridge {
     my ($roku, $model) = @_;
 
-    ok ( my $rcp = Roku::LCD->new($roku, model => $model, debug => 1), "Connect to Soundbridge '$roku'");
+    ok ( my $rcp = Roku::LCD->new(Host => $roku, model => $model, debug => 1), "Connect to Soundbridge '$roku'");
     if ($rcp) {
         return($rcp);
     }
@@ -80,7 +80,7 @@ subtest 'Using ROKUIP environment variable' => sub {
 		}
 	
 	    diag( "Testing M600 against Roku Address '$rokuIP'" );
-	    eval { $connection = Roku::LCD->new($rokuIP, model => 600, debug => 1) } or my $response = $@;
+	    eval { $connection = Roku::LCD->new(Host => $rokuIP, model => 600, debug => 1) } or my $response = $@;
 	    like($response, qr/Unrecognised model type/, "Connect to unknown Soundbridge model M600 fails");
     }
 } # end subtest

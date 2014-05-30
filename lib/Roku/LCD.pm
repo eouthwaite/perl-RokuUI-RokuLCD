@@ -5,6 +5,7 @@ use strict;
 use warnings;
 use Time::HiRes qw(sleep);
 use Readonly;
+use Carp qw(croak);
 
 # Constants
 Readonly::Scalar our $EMPTY       => q{};
@@ -19,7 +20,7 @@ require Roku::RCP;
 
 use parent qw(Roku::RCP);
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 =head1 NAME
 
@@ -29,7 +30,7 @@ Roku::LCD - M400 & M500 Display Functions made more accessible than via the Roku
 
 =over
 
-=item Version 0.04  May 24, 2014 - moved namespace ; refactored main methods 
+=item Version 0.05  May 27, 2014 - continuing to modernize the code 
 
 =back
 
@@ -71,44 +72,43 @@ command (if that fails, the model type will be set to M400).
 =cut
 
 sub new {
-    my $self = shift;
-    my $class = ref($self) || $self;
-    my ( $host, %args );
-    if ( scalar(@_) % 2 ) { $host = shift; }
-    %args = @_;
-    if ($host) { $args{Host} = $host; }
-
-    if (! $args{Host}) { return; }
+    my ( $class, %args ) = @_;
+    if (! $args{Host}) { croak "No soundbridge host to control"; }
     
     # Test model type before attempting to connect
-    if ( ( $args{model} != $M500 ) && ( $args{model} != $M400 ) ) {
-        die 'Unrecognised model type, ', $args{model}, "\n";
+    if ( ( $args{model} ) && ( $args{model} != $M500 ) && ( $args{model} != $M400 ) ) {
+        croak 'Unrecognised model type, ', $args{model}, "\n";
     }
 
-    $self = $class->SUPER::new( $host, Port => $args{Port} || '4444' );
+    # Roku::RCP really ought to take host within the %args list...
+    my $self = $class->SUPER::new( $args{Host}, Port => $args{Port} || '4444' );
 
     if (! defined $self)  { return; }
 
     if ( $args{model} ) {
 	    if ( $args{model} == $M500 ) {
-	        ${*$self}{display_length} = $M500WIDTH ;
-            ${*$self}{model} = $args{model};
+	    	# prefer arrow notation to typeglobs used in Roku::RCP
+            # ${*$self}{display_length} = $M500WIDTH ;
+            ${$self}->{display_length} = $M500WIDTH ;
+            ${$self}->{model} = $args{model};
 	    }
 	    elsif ( $args{model} == $M400 ) {
-	        ${*$self}{display_length} = $M400WIDTH ;
-            ${*$self}{model} = $args{model};
+	        ${$self}->{display_length} = $M400WIDTH ;
+            ${$self}->{model} = $args{model};
 	    }
     }
     else {
     	my $result = $self->_determine_model;
 	    
-	    if (! ${*$self}{model}) {
-            die "Unrecognised display type - unknown model type.  Try setting manually.\n";
+        if (! ${$self}->{model}) {
+            croak "Unrecognised display type - unknown model type.  Try setting manually.\n";
 	    }
     }
 
-    if ( ${*$self}{debug} ) {
-        print "DEBUG display length = ${*$self}{display_length}; model = M${*$self}{model}\n";
+    print " ref \$self = '", ref $self ,"'\n ref \*\$self = '", ref *$self  ,"'\n ref \${\$self} = '", ref ${$self} , "'\n ref \${\*\$self} = '", ref ${*$self}, "'\n";
+
+    if ( ${$self}->{debug} ) {
+        print "DEBUG display length = ${$self}->{display_length}; model = M${$self}->{model}\n";
     }
 
     return bless $self, $class;
@@ -136,7 +136,7 @@ sub marquee {
     # duration is a magic number - time to wait before releasing display.
     my $duration = ( int( ( ( length($text) ) + 24 ) / 25 ) ) * 5;
 
-    if ( ${*$self}{debug} ) {
+    if ( ${$self}->{debug} ) {
         print "DEBUG text length = ", length($text),
           " duration = $duration\n";
     }
@@ -180,20 +180,19 @@ sub _determine_model {
     my @responses = $self->sb_response();
     foreach my $response (@responses) {
     
-        if ( ${*$self}{debug} ) {
+        if ( ${$self}->{debug} ) {
             print "DEBUG display type returned '$response'\n";
         }
         if ($response =~ /^(\d{2})x/) {
-            ${*$self}{display_length} = $1;
-            if (${*$self}{display_length} == $M500WIDTH) {
-                ${*$self}{model} = $M500 ;
+            ${$self}->{display_length} = $1;
+            if (${$self}->{display_length} == $M500WIDTH) {
+                ${$self}->{model} = $M500 ;
                 return "model $M500";
             }
             else { # assume it's 16
-                ${*$self}{model} = $M400 ;
+                ${$self}->{model} = $M400 ;
                 return "model $M400";
             }
-            last;
         }
     }
     return; # nothing appeared - return empty handed
@@ -208,7 +207,7 @@ sub _spacefill {
     my $tl   = length($text);
 
     # how many spaces do we need ?
-    my $spc = ${*$self}{display_length} - $tl;
+    my $spc = ${$self}->{display_length} - $tl;
     if ($spc < 1) {
     	# no padding required
     	return $text;
@@ -266,7 +265,7 @@ sub _print_last_line {
 sub _ttparagraph {
     # An internal method which processes individual paragraphs for the teletype method
     my ( $self, $text, $last_line_ref, $y_ref ) = @_;
-    my $dlength   = ${*$self}{display_length}; # width of display
+    my $dlength   = ${$self}->{display_length}; # width of display
     my $current_line;
     my $current_line_length = 0;
     my $rc;
@@ -286,17 +285,17 @@ sub _ttparagraph {
         my @string = split(/ /, $text);
 
         # work through each word in the array (ary_inx holds the current word's position)
-        for ( my $ary_inx = 0 ; $ary_inx <= $#string ; $ary_inx++ ) {
+        foreach my $word (@string) {
 
-            if ( ( length( $string[$ary_inx] ) + $current_line_length ) < $dlength ) {
+            if ( ( length( $word ) + $current_line_length ) < $dlength ) {
                 # if the word will fit on the current line
                 # (note less than as a space needs to be accomodated too)
                 $current_line .= $SPACE if ($current_line);
-                $current_line .= $string[$ary_inx];
+                $current_line .= $word;
                 $current_line_length = length($current_line);
             }
             # elsif the word will not fit on the current line but contains a non-word character - split on that (add one to the length because there's a space)
-            elsif ( ( $string[$ary_inx] =~ /^(\S+\W)(\S+)$/ )
+            elsif ( ( $word =~ /^(\S+\W)(\S+)$/ )
                 && ( ( length($1) + $current_line_length + 1 ) < $dlength ) )
             {
                 if ($current_line) { $current_line .= $SPACE; }
@@ -321,10 +320,10 @@ sub _ttparagraph {
                 # start next line
                 ${$y_ref} = 1;
                 ${$last_line_ref} = $self->_spacefill(text => $current_line);
-                $current_line = $string[$ary_inx];;
+                $current_line = $word;
                 $current_line_length  = length($current_line);
             }
-        } # end for loop
+        } # end foreach @string loop
         # we've run out of words, but we haven't printed the line yet!
         if (${$last_line_ref}) {
             $rc = $self->_print_last_line(${$last_line_ref});
@@ -366,7 +365,7 @@ sub _ticker {    # the real function - also used by teletype
     my $text  = $args{'text'}  || $EMPTY;
     my $pause = $args{'pause'} || 5;
     my $y     = $args{'y'}     || 0;
-    my $dlength = ${*$self}{display_length};
+    my $dlength = ${$self}->{display_length};
     my $offset  = 0;   # offset for taking a substring
     my $dtext   = '0'; # currently displayed text
     my $tlength = 0;   # length of currently displayed text
@@ -392,7 +391,7 @@ sub _ticker {    # the real function - also used by teletype
         if ( ( length($text) > $dlength ) && ( ++$dur == $dlength ) ) {
             # print "length > dlength && dur == dlength\n";
             $self->_text( text => $dtext, duration => $LETTERPAUSE, y => $y );
-            if ( ${*$self}{debug} ) {
+            if ( ${$self}->{debug} ) {
                 print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n";
             }
             $dur = $spc;
@@ -401,7 +400,7 @@ sub _ticker {    # the real function - also used by teletype
         else {
             # print "length <= dlength || dur != dlength\n";
             $self->_text( text => $dtext, duration => $LETTERPAUSE, y => $y );
-            if ( ${*$self}{debug} ) {
+            if ( ${$self}->{debug} ) {
                 print "DEBUG dtext='$dtext' dur='$dur' spc='$spc'\n";
             }
         }
@@ -439,7 +438,7 @@ sub teletype {
 
     my @string;
     my $rc;                                      # message returned by method
-    my $dlength     = ${*$self}{display_length}; # width of display
+    my $dlength     = ${$self}->{display_length}; # width of display
     my $line_length = 0;                         # current length of line
     my $y           = 0;                         # start at the top
     my $last_string = undef;                     # last string printed
