@@ -59,6 +59,7 @@ subtest 'Using ROKUIP environment variable' => sub {
     else {
         plan tests => 5;
 	
+        diag( "Found and decoded ROKUIP environment variable" );
 	    diag( "Testing M400 against Roku Address '$rokuIP'" );
 	    $connection = connect_to_soundbridge($rokuIP, 400);
 	
