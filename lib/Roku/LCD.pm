@@ -38,7 +38,7 @@ Roku::LCD - M400 & M500 Display Functions made more accessible than via the Roku
 
 
  use Roku::LCD;
- my $display = Roku::LCD->new($rokuIP);
+ my $display = Roku::LCD->new(host => $rokuIP);
  if (! display) { die("Could not connect to Roku Soundbridge"); }
  
  my($rv) = $display->marquee(text => "This allows easy access to the marquee function - timings for M400 only");
